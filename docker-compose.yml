@@ -1,0 +1,150 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: flowise-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-flowise}
+      POSTGRES_USER: ${POSTGRES_USER:-flowise}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flowise123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - flowise-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flowise} -d ${POSTGRES_DB:-flowise}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: flowise-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - flowise-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  flowise:
+    image: flowiseai/flowise:latest
+    # Jika ingin build dari source code lokal, aktifkan baris build di bawah dan nonaktifkan image:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    container_name: flowise-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3000}:${PORT:-3000}"
+    environment:
+      - PORT=${PORT:-3000}
+      - DATABASE_TYPE=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_HOST=postgres
+      - DATABASE_NAME=${POSTGRES_DB:-flowise}
+      - DATABASE_USER=${POSTGRES_USER:-flowise}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-flowise123}
+      - DATABASE_SSL=false
+      - DATABASE_PATH=/home/node/.flowise
+      - SECRETKEY_PATH=/home/node/.flowise
+      - LOG_PATH=/home/node/.flowise/logs
+      - BLOB_STORAGE_PATH=/home/node/.flowise/storage
+      - FLOWISE_SECRETKEY_OVERWRITE=${FLOWISE_SECRETKEY_OVERWRITE:-}
+      - FLOWISE_USERNAME=${FLOWISE_USERNAME:-}
+      - FLOWISE_PASSWORD=${FLOWISE_PASSWORD:-}
+      - MODE=queue
+      - QUEUE_NAME=${QUEUE_NAME:-flowise-queue}
+      - REDIS_URL=redis://redis:6379
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - flowise_data:/home/node/.flowise
+    networks:
+      - flowise-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-3000}/api/v1/ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    entrypoint: /bin/sh -c "sleep 3; flowise start"
+
+  flowise-worker:
+    image: flowiseai/flowise-worker:latest
+    # Jika ingin build worker dari source code lokal, aktifkan baris build di bawah dan nonaktifkan image:
+    # build:
+    #   context: .
+    #   dockerfile: docker/worker/Dockerfile
+    container_name: flowise-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      flowise:
+        condition: service_started
+    ports:
+      - "${WORKER_PORT:-5566}:${WORKER_PORT:-5566}"
+    environment:
+      - WORKER_PORT=${WORKER_PORT:-5566}
+      - DATABASE_TYPE=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_HOST=postgres
+      - DATABASE_NAME=${POSTGRES_DB:-flowise}
+      - DATABASE_USER=${POSTGRES_USER:-flowise}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-flowise123}
+      - DATABASE_SSL=false
+      - DATABASE_PATH=/home/node/.flowise
+      - SECRETKEY_PATH=/home/node/.flowise
+      - LOG_PATH=/home/node/.flowise/logs
+      - BLOB_STORAGE_PATH=/home/node/.flowise/storage
+      - FLOWISE_SECRETKEY_OVERWRITE=${FLOWISE_SECRETKEY_OVERWRITE:-}
+      - MODE=queue
+      - QUEUE_NAME=${QUEUE_NAME:-flowise-queue}
+      - REDIS_URL=redis://redis:6379
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      - flowise_data:/home/node/.flowise
+    networks:
+      - flowise-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WORKER_PORT:-5566}/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    entrypoint: /bin/sh -c "node /app/healthcheck/healthcheck.js & sleep 5 && pnpm run start-worker"
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  flowise_data:
+    driver: local
+
+networks:
+  flowise-net:
+    driver: bridge
