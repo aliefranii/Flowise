@@ -1,27 +1,17 @@
-version: '3.1'
-
 services:
     redis:
         image: redis:alpine
-        container_name: flowise-redis
-        ports:
-            - '6379:6379'
         volumes:
-            - redis_data:/data
+            - ../files/redis:/data
         networks:
             - flowise-net
-        restart: always
+        restart: unless-stopped
 
     flowise:
         image: flowiseai/flowise:latest
-        container_name: flowise-main
-        restart: always
-        ports:
-            - '${PORT:-3000}:${PORT:-3000}'
+        restart: unless-stopped
         volumes:
-            # Container runs as the non-root `node` user, whose home is /home/node.
-            # Ensure the host directory is writable by that user (e.g. `chown -R 1000:1000 ~/.flowise` on Linux hosts).
-            - ~/.flowise:/home/node/.flowise
+            - ../files/flowise:/home/node/.flowise
         environment:
             # --- Essential Flowise Vars ---
             - PORT=${PORT:-3000}
@@ -182,11 +172,9 @@ services:
 
     flowise-worker:
         image: flowiseai/flowise-worker:latest
-        container_name: flowise-worker
-        restart: always
+        restart: unless-stopped
         volumes:
-            # Container runs as the non-root `node` user, whose home is /home/node.
-            - ~/.flowise:/home/node/.flowise
+            - ../files/flowise:/home/node/.flowise
         environment:
             # --- Essential Flowise Vars ---
             - WORKER_PORT=${WORKER_PORT:-5566}
@@ -336,10 +324,6 @@ services:
             - flowise
         networks:
             - flowise-net
-
-volumes:
-    redis_data:
-        driver: local
 
 networks:
     flowise-net:

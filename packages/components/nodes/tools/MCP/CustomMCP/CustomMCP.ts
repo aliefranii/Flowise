@@ -181,10 +181,10 @@ class Custom_MCP implements INode {
                 }
             }
 
-            // Compatible with stdio and SSE
+            // Compatible with stdio, Streamable HTTP, and SSE
             let toolkit: MCPToolkit
             if (process.env.CUSTOM_MCP_PROTOCOL === 'stdio' && serverParams!.command) toolkit = new MCPToolkit(serverParams, 'stdio')
-            else toolkit = new MCPToolkit(serverParams, 'sse')
+            else toolkit = new MCPToolkit(serverParams, process.env.CUSTOM_MCP_PROTOCOL === 'sse' ? 'sse' : 'http')
 
             await toolkit.initialize()
 

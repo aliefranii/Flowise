@@ -125,19 +125,22 @@ export class MCPToolkit extends BaseToolkit {
             await checkDenyList(this.serverParams.url)
             const mergedHeaders = { ...this.serverParams?.headers, ...injectHeaders }
             const headers = Object.keys(mergedHeaders).length > 0 ? mergedHeaders : undefined
+            if (headers) {
+                transport = new StreamableHTTPClientTransport(baseUrl, {
+                    requestInit: {
+                        headers
+                    }
+                })
+            } else {
+                transport = new StreamableHTTPClientTransport(baseUrl)
+            }
+
             try {
-                if (headers) {
-                    transport = new StreamableHTTPClientTransport(baseUrl, {
-                        requestInit: {
-                            headers
-                        }
-                    })
-                } else {
-                    transport = new StreamableHTTPClientTransport(baseUrl)
-                }
                 await client.connect(transport)
             } catch (error) {
-                console.error('Error connecting to MCP server', error)
+                if (this.transportType !== 'sse') throw error
+
+                console.error('Error connecting to MCP server with Streamable HTTP, trying SSE', error)
                 if (headers) {
                     transport = new SSEClientTransport(baseUrl, {
                         requestInit: {
