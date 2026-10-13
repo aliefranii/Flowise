@@ -1,19 +1,32 @@
-FROM node:24-alpine
+FROM node:24-slim
 
+# Debian slim is used instead of Alpine because the Alpine CDN
+# (dl-cdn.alpinelinux.org) is unreliable on some build hosts, which surfaces as
+# "DNS: transient error" followed by "unable to select packages".
+#
 # Native module compilation needs git (faiss-node falls back to `git clone`)
-# plus cmake when prebuilt binaries cannot be downloaded.
-RUN apk add --update libc6-compat python3 make g++ git cmake
-# needed for pdfjs-dist
-RUN apk add --no-cache build-base cairo-dev pango-dev
-
-# Install Chromium and curl for container-level health checks
-RUN apk add --no-cache chromium curl
+# plus cmake when prebuilt binaries cannot be downloaded. cairo/pango dev
+# headers are needed by pdfjs-dist.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        python3 \
+        make \
+        g++ \
+        git \
+        cmake \
+        build-essential \
+        libcairo2-dev \
+        libpango1.0-dev \
+        chromium \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 #install PNPM globally
 RUN npm install -g pnpm@10.26.0
 
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Prebuilt native binaries are fetched from GitHub releases, which is slow or
 # blocked on some build hosts. Allow a long timeout and several retries so the
@@ -44,7 +57,7 @@ RUN pnpm build
 
 WORKDIR /app/healthcheck
 
-COPY docker/worker/healthcheck/package.json . 
+COPY docker/worker/healthcheck/package.json .
 
 RUN npm install --omit=dev
 
@@ -61,7 +74,7 @@ ENV WORKER_PORT=5566
 # Expose port (can be overridden by env var)
 EXPOSE ${WORKER_PORT}
 
-# Give the node user ownership of the application files (node:*-alpine already has this user)
+# Give the node user ownership of the application files (node:*-slim already has this user)
 RUN chown -R node:node /usr/src /app
 
 # Switch to non-root user

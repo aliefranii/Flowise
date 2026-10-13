@@ -2,12 +2,22 @@
 ARG NODE_VERSION=24
 
 # Stage 1: Build stage
-FROM node:${NODE_VERSION}-alpine AS build
+FROM node:${NODE_VERSION}-slim AS build
 
-USER root
-
-# Install build dependencies
-RUN apk add --no-cache git python3 py3-pip make g++ build-base cairo-dev pango-dev
+# Debian slim is used instead of Alpine because the Alpine CDN
+# (dl-cdn.alpinelinux.org) is unreliable on some build hosts, which surfaces as
+# "DNS: transient error" followed by "unable to select packages".
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        python3 \
+        python3-pip \
+        make \
+        g++ \
+        build-essential \
+        libcairo2-dev \
+        libpango1.0-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Skip downloading Chrome for Puppeteer (saves build time)
 ENV PUPPETEER_SKIP_DOWNLOAD=true
@@ -28,19 +38,31 @@ ENV NPM_CONFIG_FETCH_TIMEOUT=300000
 RUN npm install -g flowise && npm --prefix "$(npm root -g)/flowise" dedupe
 
 # Stage 2: Runtime stage
-FROM node:${NODE_VERSION}-alpine
+FROM node:${NODE_VERSION}-slim
 
 # Install runtime dependencies
-RUN apk add --no-cache chromium git python3 py3-pip make g++ build-base cairo-dev pango-dev curl
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        chromium \
+        git \
+        python3 \
+        python3-pip \
+        make \
+        g++ \
+        build-essential \
+        libcairo2-dev \
+        libpango1.0-dev \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the environment variable for Puppeteer to find Chromium
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Copy Flowise from the build stage
 COPY --from=build /usr/local/lib/node_modules /usr/local/lib/node_modules
 COPY --from=build /usr/local/bin /usr/local/bin
 
-# Give the node user ownership of the installed package (node:*-alpine already has this user)
+# Give the node user ownership of the installed package (node:*-slim already has this user)
 RUN chown -R node:node /usr/local/lib/node_modules /usr/local/bin
 
 # Switch to non-root user
