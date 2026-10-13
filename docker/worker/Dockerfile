@@ -17,6 +17,7 @@ RUN apt-get update \
         build-essential \
         libcairo2-dev \
         libpango1.0-dev \
+        libvips-dev \
         chromium \
         curl \
         ca-certificates \
@@ -34,6 +35,12 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV npm_config_fetch_timeout=600000
 ENV npm_config_fetch_retries=5
 ENV npm_config_prebuild_install_timeout=600000
+
+# sharp normally downloads a prebuilt libvips binary at install time, which
+# times out on restricted build hosts. Link against the system libvips instead.
+ENV SHARP_FORCE_GLOBAL_LIBVIPS=1
+ENV SHARP_IGNORE_GLOBAL_LIBVIPS=0
+ENV SHARP_INSTALL_TIMEOUT=600000
 
 ENV NODE_OPTIONS=--max-old-space-size=8192
 
