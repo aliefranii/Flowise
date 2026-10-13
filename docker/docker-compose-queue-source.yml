@@ -2,6 +2,9 @@ services:
     redis:
         image: redis:alpine
         restart: unless-stopped
+        dns:
+            - 1.1.1.1
+            - 8.8.8.8
         volumes:
             - ../files/redis:/data
         networks:
@@ -9,9 +12,13 @@ services:
 
     flowise:
         restart: unless-stopped
+        dns:
+            - 1.1.1.1
+            - 8.8.8.8
         build:
             context: .. # Build using the Dockerfile in the root directory
             dockerfile: docker/Dockerfile
+            network: host
         volumes:
             - ../files/flowise:/home/node/.flowise
         environment:
@@ -33,9 +40,13 @@ services:
 
     flowise-worker:
         restart: unless-stopped
+        dns:
+            - 1.1.1.1
+            - 8.8.8.8
         build:
             context: .. # Build context is still the root
             dockerfile: docker/worker/Dockerfile # Ensure this path is correct
+            network: host
         volumes:
             - ../files/flowise:/home/node/.flowise
         environment:
