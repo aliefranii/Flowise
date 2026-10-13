@@ -45,11 +45,13 @@ ENV npm_config_fetch_retries=5
 ENV npm_config_prebuild_install_timeout=600000
 
 # sharp normally downloads a prebuilt libvips binary at install time, which
-# times out on restricted build hosts. Build it from source against the system
-# libvips that is installed above.
+# times out on restricted build hosts. sharp reads its own npm_config_sharp_*
+# variables, so the generic npm_config_build_from_source flag has no effect
+# here. These make sharp compile against the system libvips installed above.
 ENV SHARP_IGNORE_GLOBAL_LIBVIPS=0
 ENV SHARP_INSTALL_TIMEOUT=600000
-ENV npm_config_build_from_source=true
+ENV npm_config_sharp_build_from_source=true
+ENV npm_config_sharp_libvips_build_from_source=true
 
 ENV NODE_OPTIONS=--max-old-space-size=8192
 
