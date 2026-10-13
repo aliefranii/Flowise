@@ -29,7 +29,6 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 # sharp 0.32 downloads its matching libvips archive during install. Use the
 # mirror's expected base path (including trailing slash) to avoid timing out on
 # GitHub release downloads.
-ENV SHARP_DIST_BASE_URL=https://npmmirror.com/mirrors/sharp-libvips/
 ENV SHARP_INSTALL_TIMEOUT=600000
 ENV npm_config_fetch_retries=5
 ENV npm_config_fetch_timeout=600000
