@@ -15,6 +15,8 @@ RUN apt-get update \
         make \
         g++ \
         build-essential \
+        libblas-dev \
+        liblapack-dev \
         libcairo2-dev \
         libpango1.0-dev \
         libvips-dev \
@@ -57,6 +59,8 @@ RUN apt-get update \
         make \
         g++ \
         build-essential \
+        libblas-dev \
+        liblapack-dev \
         libcairo2-dev \
         libpango1.0-dev \
         libvips-dev \

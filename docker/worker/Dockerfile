@@ -7,6 +7,11 @@ FROM node:24-slim
 # Native module compilation needs git (faiss-node falls back to `git clone`)
 # plus cmake when prebuilt binaries cannot be downloaded. cairo/pango dev
 # headers are needed by pdfjs-dist.
+#
+# faiss-node has no prebuilt binary for current Node versions, so it compiles
+# FAISS from source. FAISS's CMake config requires a BLAS/LAPACK implementation
+# and fails with "Could NOT find BLAS (missing: BLAS_LIBRARIES)" without the
+# -dev packages below.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         python3 \
@@ -15,6 +20,8 @@ RUN apt-get update \
         git \
         cmake \
         build-essential \
+        libblas-dev \
+        liblapack-dev \
         libcairo2-dev \
         libpango1.0-dev \
         libvips-dev \
