@@ -1,18 +1,39 @@
 services:
-    flowise:
-        image: flowiseai/flowise:latest
+    postgres:
+        image: postgres:16-alpine
         restart: unless-stopped
+        environment:
+            POSTGRES_DB: ${POSTGRES_DB:-flowise}
+            POSTGRES_USER: ${POSTGRES_USER:-flowise}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in root .env}
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-flowise} -d ${POSTGRES_DB:-flowise}']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    flowise:
+        build:
+            context: ..
+            dockerfile: docker/Dockerfile
+        image: flowiseai/flowise:source
+        restart: unless-stopped
+        depends_on:
+            postgres:
+                condition: service_healthy
         environment:
             - PORT=${PORT:-3000}
 
             # DATABASE
             - DATABASE_PATH=${DATABASE_PATH:-/home/node/.flowise}
-            - DATABASE_TYPE=${DATABASE_TYPE}
-            - DATABASE_PORT=${DATABASE_PORT}
-            - DATABASE_HOST=${DATABASE_HOST}
-            - DATABASE_NAME=${DATABASE_NAME}
-            - DATABASE_USER=${DATABASE_USER}
-            - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+            - DATABASE_TYPE=postgres
+            - DATABASE_PORT=5432
+            - DATABASE_HOST=postgres
+            - DATABASE_NAME=${POSTGRES_DB:-flowise}
+            - DATABASE_USER=${POSTGRES_USER:-flowise}
+            - DATABASE_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in root .env}
             - DATABASE_SSL=${DATABASE_SSL}
             - DATABASE_SSL_KEY_BASE64=${DATABASE_SSL_KEY_BASE64}
 
@@ -157,4 +178,7 @@ services:
             start_period: 30s
         volumes:
             - ../files/flowise:/home/node/.flowise
-        entrypoint: /bin/sh -c "sleep 3; flowise start"
+        entrypoint: ['node', 'run', 'start']
+
+volumes:
+    postgres_data:
