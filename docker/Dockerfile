@@ -11,7 +11,7 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true SHARP_INSTALL_TIMEOUT=600000 \
 WORKDIR /usr/src/flowise
 RUN corepack enable
 COPY . .
-RUN corepack pnpm install --no-frozen-lockfile && corepack pnpm build:docker
+RUN corepack pnpm install --no-frozen-lockfile --config.strict-dep-builds=false && corepack pnpm build:docker
 
 FROM node:${NODE_VERSION}-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
