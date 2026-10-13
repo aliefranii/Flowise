@@ -26,19 +26,11 @@ RUN apt-get update \
 # Skip downloading Chrome for Puppeteer (saves build time)
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
-# sharp/libvips normally downloads a prebuilt native binary from GitHub
-# releases at install time. GitHub can be slow or blocked on some build hosts,
-# which fails the whole install with
-# "sharp: Installation error: Request timed out".
-#
-# sharp reads its own npm_config_sharp_* variables, so the generic
-# npm_config_build_from_source flag has no effect here. Setting
-# npm_config_sharp_build_from_source makes sharp compile against the system
-# libvips (installed above) instead of downloading a prebuilt binary.
-ENV SHARP_IGNORE_GLOBAL_LIBVIPS=0
+# sharp 0.32 downloads its matching libvips archive during install. Use the
+# mirror's expected base path (including trailing slash) to avoid timing out on
+# GitHub release downloads.
+ENV SHARP_DIST_BASE_URL=https://npmmirror.com/mirrors/sharp-libvips/
 ENV SHARP_INSTALL_TIMEOUT=600000
-ENV npm_config_sharp_build_from_source=true
-ENV npm_config_sharp_libvips_build_from_source=true
 ENV npm_config_fetch_retries=5
 ENV npm_config_fetch_timeout=600000
 
