@@ -18,6 +18,7 @@ RUN apt-get update \
         libcairo2-dev \
         libpango1.0-dev \
         libvips-dev \
+        pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # Skip downloading Chrome for Puppeteer (saves build time)
@@ -28,13 +29,14 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true
 # some build hosts, which fails the install with
 # "sharp: Installation error: Request timed out".
 #
-# Force sharp to link against the system libvips installed above instead of
-# downloading anything.
-ENV SHARP_FORCE_GLOBAL_LIBVIPS=1
+# Build sharp from source against the system libvips installed above. The
+# *_binary_host values point at an invalid host so any attempt to download a
+# prebuilt binary fails fast, forcing the from-source build path.
 ENV SHARP_IGNORE_GLOBAL_LIBVIPS=0
 ENV SHARP_INSTALL_TIMEOUT=600000
-ENV NPM_CONFIG_FETCH_RETRIES=5
-ENV NPM_CONFIG_FETCH_TIMEOUT=600000
+ENV npm_config_fetch_retries=5
+ENV npm_config_fetch_timeout=600000
+ENV npm_config_build_from_source=true
 
 # Install latest Flowise globally (specific version can be set: flowise@1.0.0)
 # npm dedupe is required after install: npm's overrides resolver does not
