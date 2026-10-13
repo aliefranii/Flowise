@@ -159,12 +159,11 @@ services:
             # SCHEDULE
             - MIN_SCHEDULE_INTERVAL_SECONDS=${MIN_SCHEDULE_INTERVAL_SECONDS}
         healthcheck:
-            test: ['CMD', 'curl', '-f', 'http://localhost:${PORT:-3000}/api/v1/ping']
+            test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:${PORT:-3000}/api/v1/ping']
             interval: 10s
             timeout: 5s
             retries: 5
             start_period: 30s
-        entrypoint: /bin/sh -c "sleep 3; flowise start"
         depends_on:
             - redis
         networks:
@@ -313,12 +312,11 @@ services:
             - OAUTH2_SECURITY_CHECK=${OAUTH2_SECURITY_CHECK}
             - OAUTH2_ALLOWED_TOKEN_DOMAINS=${OAUTH2_ALLOWED_TOKEN_DOMAINS}
         healthcheck:
-            test: ['CMD', 'curl', '-f', 'http://localhost:${WORKER_PORT:-5566}/healthz']
+            test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:${WORKER_PORT:-5566}/healthz']
             interval: 10s
             timeout: 5s
             retries: 5
             start_period: 30s
-        entrypoint: /bin/sh -c "node /app/healthcheck/healthcheck.js & sleep 5 && pnpm run start-worker"
         depends_on:
             - redis
             - flowise
