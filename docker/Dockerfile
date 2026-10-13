@@ -12,6 +12,15 @@ RUN apk add --no-cache git python3 py3-pip make g++ build-base cairo-dev pango-d
 # Skip downloading Chrome for Puppeteer (saves build time)
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
+# sharp/libvips downloads its native binary from GitHub releases at install
+# time. GitHub can be slow or blocked on some build hosts, which makes the
+# install fail with "sharp: Installation error: Request timed out".
+# Point libvips at a mirror and raise the fetch timeout/retries.
+ENV SHARP_DIST_BASE_URL=https://npmmirror.com/mirrors/sharp-libvips
+ENV SHARP_INSTALL_TIMEOUT=180000
+ENV NPM_CONFIG_FETCH_RETRIES=5
+ENV NPM_CONFIG_FETCH_TIMEOUT=300000
+
 # Install latest Flowise globally (specific version can be set: flowise@1.0.0)
 # npm dedupe is required after install: npm's overrides resolver does not
 # consistently collapse every duplicate of an overridden package in one pass
