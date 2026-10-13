@@ -21,6 +21,7 @@ RUN apt-get update \
         libcairo2-dev \
         libpango1.0-dev \
         libvips-dev \
+        libglib2.0-dev \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
