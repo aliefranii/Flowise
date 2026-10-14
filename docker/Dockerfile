@@ -2,7 +2,8 @@ ARG NODE_VERSION=24
 
 FROM node:${NODE_VERSION}-slim AS build
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates git cmake python3 make g++ build-essential libblas-dev liblapack-dev \
+    ca-certificates git cmake python3 make g++ build-essential \
+    libblas-dev liblapack-dev libopenblas-dev libopenblas0-pthread \
     libcairo2-dev libpango1.0-dev libvips-dev libglib2.0-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 ENV PUPPETEER_SKIP_DOWNLOAD=true SHARP_INSTALL_TIMEOUT=600000 \
@@ -15,7 +16,8 @@ RUN pnpm --version && pnpm install --no-frozen-lockfile && pnpm build:docker
 
 FROM node:${NODE_VERSION}-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium git python3 make g++ build-essential libblas-dev liblapack-dev \
+    chromium git python3 make g++ build-essential \
+    libblas-dev liblapack-dev libopenblas-dev libopenblas0-pthread \
     libcairo2-dev libpango1.0-dev libvips-dev curl \
     && rm -rf /var/lib/apt/lists/*
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium

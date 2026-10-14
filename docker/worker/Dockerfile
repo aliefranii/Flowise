@@ -22,6 +22,8 @@ RUN apt-get update \
         build-essential \
         libblas-dev \
         liblapack-dev \
+        libopenblas-dev \
+        libopenblas0-pthread \
         libcairo2-dev \
         libpango1.0-dev \
         libvips-dev \
