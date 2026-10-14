@@ -2,7 +2,7 @@ ARG NODE_VERSION=24
 
 FROM node:${NODE_VERSION}-slim AS build
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git cmake python3 make g++ build-essential libblas-dev liblapack-dev \
+    ca-certificates git cmake python3 make g++ build-essential libblas-dev liblapack-dev \
     libcairo2-dev libpango1.0-dev libvips-dev libglib2.0-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 ENV PUPPETEER_SKIP_DOWNLOAD=true SHARP_INSTALL_TIMEOUT=600000 \
