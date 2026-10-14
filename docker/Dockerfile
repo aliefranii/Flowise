@@ -9,9 +9,9 @@ ENV PUPPETEER_SKIP_DOWNLOAD=true SHARP_INSTALL_TIMEOUT=600000 \
     npm_config_fetch_retries=5 npm_config_fetch_timeout=600000 \
     NODE_OPTIONS=--max-old-space-size=8192
 WORKDIR /usr/src/flowise
-RUN corepack enable
+RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
 COPY . .
-RUN corepack pnpm install --no-frozen-lockfile && corepack pnpm build:docker
+RUN pnpm --version && pnpm install --no-frozen-lockfile && pnpm build:docker
 
 FROM node:${NODE_VERSION}-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
