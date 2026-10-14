@@ -23,4 +23,4 @@ WORKDIR /usr/src/flowise/packages/server/bin
 COPY --from=build --chown=node:node /usr/src/flowise /usr/src/flowise
 USER node
 EXPOSE 3000
-ENTRYPOINT ["node", "run", "start"]
+ENTRYPOINT ["node", "./run", "start"]

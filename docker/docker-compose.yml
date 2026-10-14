@@ -178,7 +178,7 @@ services:
             start_period: 30s
         volumes:
             - ../files/flowise:/home/node/.flowise
-        entrypoint: ['node', 'run', 'start']
+        entrypoint: ['node', './run', 'start']
 
 volumes:
     postgres_data:
