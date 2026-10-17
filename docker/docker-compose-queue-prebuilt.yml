@@ -11,7 +11,7 @@ services:
         image: flowiseai/flowise:latest
         restart: unless-stopped
         volumes:
-            - ../files/flowise:/home/node/.flowise
+            - flowise_data:/home/node/.flowise
         environment:
             # --- Essential Flowise Vars ---
             - PORT=${PORT:-3000}
@@ -173,7 +173,7 @@ services:
         image: flowiseai/flowise-worker:latest
         restart: unless-stopped
         volumes:
-            - ../files/flowise:/home/node/.flowise
+            - flowise_data:/home/node/.flowise
         environment:
             # --- Essential Flowise Vars ---
             - WORKER_PORT=${WORKER_PORT:-5566}
@@ -326,3 +326,6 @@ services:
 networks:
     flowise-net:
         driver: bridge
+
+volumes:
+    flowise_data:

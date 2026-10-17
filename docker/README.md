@@ -20,7 +20,7 @@ If you like to persist your data (flows, logs, credentials, storage), set these 
 
 Flowise also support different environment variables to configure your instance. Read [more](https://docs.flowiseai.com/configuration/environment-variables)
 
-> The container runs as the non-root `node` user (uid 1000), whose home directory is `/home/node`. If you bind-mount a host directory (e.g. `~/.flowise`) for persistence, make sure it's writable by that user - on Linux hosts this may require `chown -R 1000:1000 ~/.flowise`.
+> The container runs as the non-root `node` user (uid 1000), whose home directory is `/home/node`. The compose files persist data in the named volume `flowise_data`, which inherits `node:node` ownership from the image, so no `chown` is needed. If you instead bind-mount a host directory (e.g. `../files/flowise:/home/node/.flowise`), make sure it's writable by that user - on Linux hosts this requires `chown -R 1000:1000 files/flowise`, otherwise startup fails with `EACCES: permission denied, mkdir '/home/node/.flowise/storage'`.
 
 ## Queue Mode:
 

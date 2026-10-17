@@ -20,7 +20,7 @@ services:
             dockerfile: docker/Dockerfile
             network: host
         volumes:
-            - ../files/flowise:/home/node/.flowise
+            - flowise_data:/home/node/.flowise
         environment:
             # --- Essential Flowise Vars ---
             - PORT=${PORT:-3000}
@@ -36,7 +36,7 @@ services:
             - redis
         networks:
             - flowise-net
-        entrypoint: /bin/sh -c "sleep 3; flowise start"
+        entrypoint: /bin/sh -c "sleep 3; node /usr/src/flowise/packages/server/bin/run.js start"
 
     flowise-worker:
         restart: unless-stopped
@@ -48,7 +48,7 @@ services:
             dockerfile: docker/worker/Dockerfile # Ensure this path is correct
             network: host
         volumes:
-            - ../files/flowise:/home/node/.flowise
+            - flowise_data:/home/node/.flowise
         environment:
             # --- Essential Flowise Vars ---
             - WORKER_PORT=${WORKER_PORT:-5566} # Port for worker healthcheck
@@ -75,3 +75,6 @@ services:
 networks:
     flowise-net:
         driver: bridge
+
+volumes:
+    flowise_data:

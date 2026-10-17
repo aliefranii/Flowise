@@ -95,7 +95,10 @@ ENV WORKER_PORT=5566
 EXPOSE ${WORKER_PORT}
 
 # Give the node user ownership of the application files (node:*-slim already has this user)
-RUN chown -R node:node /usr/src /app
+# and pre-create the data dir so named volumes inherit node:node ownership
+RUN chown -R node:node /usr/src /app \
+    && mkdir -p /home/node/.flowise/storage /home/node/.flowise/logs \
+    && chown -R node:node /home/node/.flowise
 
 # Switch to non-root user
 USER node
