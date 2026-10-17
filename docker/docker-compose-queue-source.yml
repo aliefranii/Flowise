@@ -36,7 +36,7 @@ services:
             - redis
         networks:
             - flowise-net
-        entrypoint: /bin/sh -c "sleep 3; node /usr/src/flowise/packages/server/bin/run.js start"
+        entrypoint: /bin/sh -c "sleep 3; cd /usr/src/flowise/packages/server/bin && ./run start"
 
     flowise-worker:
         restart: unless-stopped

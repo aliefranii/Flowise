@@ -24,8 +24,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 WORKDIR /usr/src/flowise/packages/server/bin
 COPY --from=build --chown=node:node /usr/src/flowise /usr/src/flowise
-# Pre-create the data dir so named volumes inherit node:node ownership
-RUN mkdir -p /home/node/.flowise/storage /home/node/.flowise/logs && chown -R node:node /home/node/.flowise
-USER node
+# COPY can drop the executable bit (Windows hosts / some git configs), so restore it explicitly.
+# The data dir is pre-created so named volumes inherit node:node ownership.
+RUN chmod +x /usr/src/flowise/packages/server/bin/run \
+    && mkdir -p /home/node/.flowise/storage /home/node/.flowise/logs \
+    && chown -R node:node /home/node/.flowise
 EXPOSE 3000
-ENTRYPOINT ["node", "./run.js", "start"]
+ENTRYPOINT ["./run", "start"]

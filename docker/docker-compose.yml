@@ -20,6 +20,9 @@ services:
             dockerfile: docker/Dockerfile
         image: flowiseai/flowise:source
         restart: unless-stopped
+        # Dokploy deploys as root and may create the data volume owned by root:root,
+        # which would make the non-root `node` user fail with EACCES on mkdir.
+        user: root
         depends_on:
             postgres:
                 condition: service_healthy
