@@ -99,6 +99,33 @@
     border-radius: 1rem;
 }
 
+.usermessage .usericon,
+.usermessagewaiting .usericon,
+.usermessagewaiting-light .usericon,
+.usermessagewaiting-dark .usericon {
+    margin-right: 0;
+    margin-left: 1rem;
+}
+
+.usermessage .markdownanswer,
+.usermessagewaiting .markdownanswer,
+.usermessagewaiting-light .markdownanswer,
+.usermessagewaiting-dark .markdownanswer {
+    align-self: flex-end;
+    max-width: 80%;
+    padding: 0.6rem 1rem;
+    border-radius: 1rem 1rem 0.25rem 1rem;
+    background: rgba(35, 145, 255, 0.1);
+    width: fit-content;
+}
+
+.usermessage .markdownanswer a,
+.usermessagewaiting .markdownanswer a,
+.usermessagewaiting-light .markdownanswer a,
+.usermessagewaiting-dark .markdownanswer a {
+    margin-right: 0;
+}
+
 .markdownanswer h1,
 .markdownanswer h2,
 .markdownanswer h3 {
