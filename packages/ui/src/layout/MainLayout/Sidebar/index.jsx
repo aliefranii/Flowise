@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux'
 
 // material-ui
 import { useTheme } from '@mui/material/styles'
-import { Box, Drawer, useMediaQuery } from '@mui/material'
+import { Box, Drawer, useMediaQuery, Toolbar } from '@mui/material'
 
 // third-party
 import PerfectScrollbar from 'react-perfect-scrollbar'
@@ -11,11 +11,13 @@ import { BrowserView, MobileView } from 'react-device-detect'
 
 // project imports
 import MenuList from './MenuList'
-import LogoSection from '../LogoSection'
 import CloudMenuList from '@/layout/MainLayout/Sidebar/CloudMenuList'
 
 // store
 import { drawerWidth, headerHeight } from '@/store/constant'
+
+// component
+import SidebarHeader from './SidebarHeader'
 
 // ==============================|| SIDEBAR DRAWER ||============================== //
 
@@ -26,21 +28,22 @@ const Sidebar = ({ drawerOpen, drawerToggle, window, bannerOffset = 0 }) => {
 
     const drawer = (
         <>
-            <Box
+            <Toolbar
                 sx={{
-                    display: { xs: 'block', md: 'none' },
-                    height: '80px'
+                    height: `${headerHeight}px`,
+                    minHeight: `${headerHeight}px !important`,
+                    px: 1,
+                    borderBottom: '1px solid',
+                    borderColor: theme.palette.grey[900] + 25
                 }}
             >
-                <Box sx={{ display: 'flex', p: 2, mx: 'auto' }}>
-                    <LogoSection />
-                </Box>
-            </Box>
+                <SidebarHeader onToggle={drawerToggle} />
+            </Toolbar>
             <BrowserView>
                 <PerfectScrollbar
                     component='div'
                     style={{
-                        height: !matchUpMd ? 'calc(100vh - 56px)' : `calc(100vh - ${headerHeight + bannerOffset}px)`,
+                        height: !matchUpMd ? '0px' : `calc(100vh - ${headerHeight + bannerOffset}px)`,
                         display: 'flex',
                         flexDirection: 'column'
                     }}
@@ -50,7 +53,7 @@ const Sidebar = ({ drawerOpen, drawerToggle, window, bannerOffset = 0 }) => {
                 </PerfectScrollbar>
             </BrowserView>
             <MobileView>
-                <Box sx={{ px: 2 }}>
+                <Box sx={{ height: `calc(100vh - ${headerHeight}px)`, overflowY: 'auto', px: 1 }}>
                     <MenuList />
                     <CloudMenuList />
                 </Box>
@@ -81,9 +84,6 @@ const Sidebar = ({ drawerOpen, drawerToggle, window, bannerOffset = 0 }) => {
                             width: drawerWidth,
                             background: theme.palette.background.default,
                             color: theme.palette.text.primary,
-                            [theme.breakpoints.up('md')]: {
-                                top: `${headerHeight + bannerOffset}px`
-                            },
                             borderRight: drawerOpen ? '1px solid' : 'none',
                             borderColor: drawerOpen ? theme.palette.grey[900] + 25 : 'transparent'
                         }

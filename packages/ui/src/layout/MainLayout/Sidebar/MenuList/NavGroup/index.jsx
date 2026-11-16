@@ -53,9 +53,8 @@ const NavGroup = ({ item }) => {
 
     const renderPrimaryItems = () => {
         const primaryGroup = item.children.find((child) => child.id === 'primary')
-        return primaryGroup.children
+        return primaryGroup
     }
-
     const renderNonPrimaryGroups = () => {
         let nonprimaryGroups = item.children.filter((child) => child.id !== 'primary')
         // Display children based on permission and display
@@ -68,24 +67,26 @@ const NavGroup = ({ item }) => {
         return nonprimaryGroups
     }
 
+    const primaryGroup = renderPrimaryItems()
+
     return (
         <>
             <List
                 subheader={
-                    item.title && (
-                        <Typography variant='caption' sx={{ ...theme.typography.menuCaption }} display='block' gutterBottom>
-                            {item.title}
-                            {item.caption && (
-                                <Typography variant='caption' sx={{ ...theme.typography.subMenuCaption }} display='block' gutterBottom>
-                                    {item.caption}
-                                </Typography>
-                            )}
+                    primaryGroup.title && (
+                        <Typography
+                            variant='caption'
+                            sx={{ ...theme.typography.subMenuCaption, textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                            display='block'
+                            gutterBottom
+                        >
+                            {primaryGroup.title}
                         </Typography>
                     )
                 }
                 sx={{ p: '16px', py: 2, display: 'flex', flexDirection: 'column', gap: 1 }}
             >
-                {renderPrimaryItems().map((menu) => listItems(menu))}
+                {primaryGroup.children.filter((menu) => shouldDisplayMenu(menu)).map((menu) => listItems(menu))}
             </List>
 
             {renderNonPrimaryGroups().map((group) => {
@@ -96,7 +97,12 @@ const NavGroup = ({ item }) => {
                             <Divider sx={{ height: '1px', borderColor: theme.palette.grey[900] + 25, my: 0 }} />
                             <List
                                 subheader={
-                                    <Typography variant='caption' sx={{ ...theme.typography.subMenuCaption }} display='block' gutterBottom>
+                                    <Typography
+                                        variant='caption'
+                                        sx={{ ...theme.typography.subMenuCaption, textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                                        display='block'
+                                        gutterBottom
+                                    >
                                         {group.title}
                                     </Typography>
                                 }

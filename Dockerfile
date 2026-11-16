@@ -26,19 +26,17 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 ENV NODE_OPTIONS=--max-old-space-size=8192
 
 WORKDIR /usr/src/flowise
+RUN chown node:node /usr/src/flowise
 
 # Copy app source
-COPY . .
+COPY --chown=node:node . .
+
+# Switch to non-root user before install so build output is owned by node
+USER node
 
 # Install dependencies and build (excluding sdk packages not needed for Docker)
 RUN pnpm install && \
     pnpm build:docker
-
-# Give the node user ownership of the application files
-RUN chown -R node:node .
-
-# Switch to non-root user (node user already exists in node:20-alpine)
-USER node
 
 EXPOSE 3000
 

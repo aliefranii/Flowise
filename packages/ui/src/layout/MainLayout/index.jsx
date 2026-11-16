@@ -1,26 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Outlet } from 'react-router-dom'
 
 // material-ui
 import { styled, useTheme } from '@mui/material/styles'
-import { AppBar, Box, CssBaseline, Toolbar, useMediaQuery } from '@mui/material'
+import { Box, CssBaseline, useMediaQuery } from '@mui/material'
 
 // project imports
-import Header from './Header'
 import Sidebar from './Sidebar'
-import AnnouncementBanner from './AnnouncementBanner'
-import { drawerWidth, headerHeight } from '@/store/constant'
+import { drawerWidth } from '@/store/constant'
 import { SET_MENU } from '@/store/actions'
-
-const BANNER_HEIGHT = 45
-const BANNER_DISMISSED_KEY = 'flowise.announcementDismissed'
 
 // styles
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' && prop !== 'bannerOffset' })(
     ({ theme, open, bannerOffset }) => ({
         ...theme.typography.mainContent,
-        marginTop: `${75 + bannerOffset}px`,
+        marginTop: `${bannerOffset}px`,
         ...(!open && {
             backgroundColor: 'transparent',
             borderBottomLeftRadius: 0,
@@ -79,33 +74,11 @@ const MainLayout = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [matchDownMd])
 
-    const [bannerDismissed, setBannerDismissed] = useState(() => localStorage.getItem(BANNER_DISMISSED_KEY) === 'true')
-    const handleDismissBanner = () => {
-        localStorage.setItem(BANNER_DISMISSED_KEY, 'true')
-        setBannerDismissed(true)
-    }
-    const bannerOffset = bannerDismissed ? 0 : BANNER_HEIGHT
+    const bannerOffset = 0
 
     return (
         <Box sx={{ display: 'flex' }}>
             <CssBaseline />
-            {/* header */}
-            <AppBar
-                enableColorOnDark
-                position='fixed'
-                color='inherit'
-                elevation={0}
-                sx={{
-                    bgcolor: theme.palette.background.default,
-                    transition: leftDrawerOpened ? theme.transitions.create('width') : 'none'
-                }}
-            >
-                {!bannerDismissed && <AnnouncementBanner onClose={handleDismissBanner} />}
-                <Toolbar sx={{ height: `${headerHeight}px`, borderBottom: '1px solid', borderColor: theme.palette.grey[900] + 25 }}>
-                    <Header handleLeftDrawerToggle={handleLeftDrawerToggle} />
-                </Toolbar>
-            </AppBar>
-
             {/* drawer */}
             <Sidebar drawerOpen={leftDrawerOpened} drawerToggle={handleLeftDrawerToggle} bannerOffset={bannerOffset} />
 

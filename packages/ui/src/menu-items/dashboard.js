@@ -23,7 +23,8 @@ import {
     IconLockCheck,
     IconFileDatabase,
     IconShieldLock,
-    IconListCheck
+    IconListCheck,
+    IconMessageChatbot
 } from '@tabler/icons-react'
 
 // constant
@@ -51,7 +52,8 @@ const icons = {
     IconLockCheck,
     IconFileDatabase,
     IconShieldLock,
-    IconListCheck
+    IconListCheck,
+    IconMessageChatbot
 }
 
 // ==============================|| DASHBOARD MENU ITEMS ||============================== //
@@ -63,9 +65,18 @@ const dashboard = {
     children: [
         {
             id: 'primary',
-            title: '',
+            title: 'Flows & Agents',
             type: 'group',
             children: [
+                {
+                    id: 'jubiragent',
+                    title: 'Jubir Agent',
+                    type: 'item',
+                    url: '/jubiragent',
+                    icon: icons.IconMessageChatbot,
+                    breadcrumbs: true,
+                    permission: 'chatflows:view'
+                },
                 {
                     id: 'chatflows',
                     title: 'Chatflows',
@@ -77,21 +88,12 @@ const dashboard = {
                 },
                 {
                     id: 'agentflows',
-                    title: 'Agentflows',
+                    title: 'Agents',
                     type: 'item',
                     url: '/agentflows',
                     icon: icons.IconUsersGroup,
                     breadcrumbs: true,
                     permission: 'agentflows:view'
-                },
-                {
-                    id: 'executions',
-                    title: 'Executions',
-                    type: 'item',
-                    url: '/executions',
-                    icon: icons.IconListCheck,
-                    breadcrumbs: true,
-                    permission: 'executions:view'
                 },
                 {
                     id: 'assistants',
@@ -104,7 +106,7 @@ const dashboard = {
                 },
                 {
                     id: 'marketplaces',
-                    title: 'Marketplaces',
+                    title: 'Marketplace',
                     type: 'item',
                     url: '/marketplaces',
                     icon: icons.IconBuildingStore,
@@ -119,7 +121,14 @@ const dashboard = {
                     icon: icons.IconTool,
                     breadcrumbs: true,
                     permission: 'tools:view'
-                },
+                }
+            ]
+        },
+        {
+            id: 'data',
+            title: 'Settings & Data',
+            type: 'group',
+            children: [
                 {
                     id: 'credentials',
                     title: 'Credentials',
@@ -155,6 +164,16 @@ const dashboard = {
                     icon: icons.IconFiles,
                     breadcrumbs: true,
                     permission: 'documentStores:view'
+                },
+                {
+                    id: 'logs',
+                    title: 'Logs',
+                    type: 'item',
+                    url: '/logs',
+                    icon: icons.IconList,
+                    breadcrumbs: true,
+                    display: 'feat:logs',
+                    permission: 'logs:view'
                 }
             ]
         },
@@ -257,25 +276,6 @@ const dashboard = {
             title: 'Others',
             type: 'group',
             children: [
-                {
-                    id: 'logs',
-                    title: 'Logs',
-                    type: 'item',
-                    url: '/logs',
-                    icon: icons.IconList,
-                    breadcrumbs: true,
-                    display: 'feat:logs',
-                    permission: 'logs:view'
-                },
-                // {
-                //     id: 'files',
-                //     title: 'Files',
-                //     type: 'item',
-                //     url: '/files',
-                //     icon: icons.IconFileDatabase,
-                //     breadcrumbs: true,
-                //     display: 'feat:files',
-                // },
                 {
                     id: 'account',
                     title: 'Account Settings',

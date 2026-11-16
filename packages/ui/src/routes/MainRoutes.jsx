@@ -4,12 +4,12 @@ import { lazy } from 'react'
 import MainLayout from '@/layout/MainLayout'
 import Loadable from '@/ui-component/loading/Loadable'
 
-import { DefaultRedirect } from '@/routes/DefaultRedirect'
 import { RequireAuth } from '@/routes/RequireAuth'
 
 // chatflows routing
 const Chatflows = Loadable(lazy(() => import('@/views/chatflows')))
-
+// jubiragent routing
+const JubirAgent = Loadable(lazy(() => import('@/views/jubiragent')))
 // agents routing
 const Agentflows = Loadable(lazy(() => import('@/views/agentflows')))
 
@@ -78,7 +78,19 @@ const MainRoutes = {
     children: [
         {
             path: '/',
-            element: <DefaultRedirect />
+            element: (
+                <RequireAuth>
+                    <JubirAgent />
+                </RequireAuth>
+            )
+        },
+        {
+            path: '/jubiragent',
+            element: (
+                <RequireAuth>
+                    <JubirAgent />
+                </RequireAuth>
+            )
         },
         {
             path: '/chatflows',
