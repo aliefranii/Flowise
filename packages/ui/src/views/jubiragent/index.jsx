@@ -1,21 +1,46 @@
 import { useEffect, useRef, useState } from 'react'
+import { alpha, keyframes } from '@mui/system'
 import { motion } from 'framer-motion'
+import { v4 as uuidv4 } from 'uuid'
 import AnimasiLogoJubir from '@/assets/images/animasi-rounded-jubir.svg'
 
 // material-ui
-import { Box, IconButton, InputBase, MenuItem, Select, Typography, useTheme } from '@mui/material'
-import { alpha, keyframes } from '@mui/material/styles'
+import {
+    Box,
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    Divider,
+    IconButton,
+    InputBase,
+    MenuItem,
+    Select,
+    Typography,
+    useTheme
+} from '@mui/material'
 
 // icons
-import { IconArrowForwardUp, IconArrowUp, IconChevronDown, IconWaveSine } from '@tabler/icons-react'
+import {
+    IconArrowForwardUp,
+    IconArrowUp,
+    IconChevronDown,
+    IconClockHour4,
+    IconMessage,
+    IconPlus,
+    IconTrash,
+    IconWaveSine,
+    IconX
+} from '@tabler/icons-react'
 
 // project imports
 import ChatMessageV2 from '@/views/chatmessage/ChatMessageV2'
 
 // API
 import chatflowsApi from '@/api/chatflows'
+import chatmessagesApi from '@/api/chatmessage'
 import useApi from '@/hooks/useApi'
 import { useError } from '@/store/context/ErrorContext'
+import { getLocalStorageChatflow } from '@/utils/genericHelper'
 
 const orbPulseGlow = keyframes`
     0%, 100% {
@@ -52,9 +77,18 @@ const JubirAgent = () => {
     const [started, setStarted] = useState(false)
     const [inputMessage, setInputMessage] = useState('')
     const [pendingMessage, setPendingMessage] = useState('')
+    const [activeChatId, setActiveChatId] = useState('')
+    const [saveHistory, setSaveHistory] = useState(false)
+    const [sessionToDelete, setSessionToDelete] = useState(null)
+    const [isDeletingSession, setIsDeletingSession] = useState(false)
     const { setError } = useError()
 
     const getAllAgentflows = useApi(chatflowsApi.getAllAgentflows)
+    const getChatflowConfig = useApi(chatflowsApi.getSpecificChatflow)
+    const getSessionsApi = useApi(chatmessagesApi.getInternalChatSessions)
+
+    const sessions = getSessionsApi.data || []
+    const historyEnabled = saveHistory && !!selectedAgentId
 
     const handleStartChat = () => {
         if (!selectedAgentId) return
@@ -62,6 +96,7 @@ const JubirAgent = () => {
         if (!msg) return
         if (!started) {
             setStarted(true)
+            setActiveChatId(uuidv4())
             setInputMessage('')
             setPendingMessage(msg)
         } else {
@@ -93,6 +128,10 @@ const JubirAgent = () => {
         inputRef.current?.focus()
     }
 
+    const refreshSessions = () => {
+        if (selectedAgentId) getSessionsApi.request(selectedAgentId)
+    }
+
     useEffect(() => {
         getAllAgentflows.request('AGENTFLOW', {})
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,8 +142,80 @@ const JubirAgent = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getAllAgentflows.error])
 
+    useEffect(() => {
+        if (getSessionsApi.error) setError(getSessionsApi.error)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [getSessionsApi.error])
+
+    useEffect(() => {
+        if (!selectedAgentId) return
+        getChatflowConfig.request(selectedAgentId)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedAgentId])
+
+    useEffect(() => {
+        const config = getChatflowConfig.data
+        if (!config) {
+            setSaveHistory(false)
+            return
+        }
+        let chatbotConfig = {}
+        try {
+            chatbotConfig = config.chatbotConfig ? JSON.parse(config.chatbotConfig) : {}
+        } catch (e) {
+            chatbotConfig = {}
+        }
+        setSaveHistory(chatbotConfig?.chatHistory?.status === true)
+    }, [getChatflowConfig.data])
+
+    const handleNewChat = () => {
+        if (!selectedAgentId) return
+        chatRef.current?.reset()
+        setInputMessage('')
+        setPendingMessage('')
+        setActiveChatId(uuidv4())
+    }
+
+    const handleSelectSession = (chatId) => {
+        if (!chatId || chatId === activeChatId) return
+        setActiveChatId(chatId)
+    }
+
+    const handleConfirmDeleteSession = async () => {
+        if (!sessionToDelete || !selectedAgentId) return
+        setIsDeletingSession(true)
+        try {
+            await chatmessagesApi.deleteInternalChatSession(selectedAgentId, sessionToDelete.chatId)
+            if (sessionToDelete.chatId === activeChatId) {
+                chatRef.current?.reset()
+                setActiveChatId(uuidv4())
+            }
+            setSessionToDelete(null)
+            refreshSessions()
+        } catch (error) {
+            setError(error)
+        } finally {
+            setIsDeletingSession(false)
+        }
+    }
+
     const agentOptions = getAllAgentflows.data || []
     const agentName = agentOptions.find((a) => a.id === selectedAgentId)?.name
+
+    useEffect(() => {
+        if (!selectedAgentId) return
+        const storedChatId = getLocalStorageChatflow(selectedAgentId)?.chatId
+        if (storedChatId && !started) {
+            setActiveChatId(storedChatId)
+            setStarted(true)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedAgentId])
+
+    useEffect(() => {
+        if (historyEnabled && started) refreshSessions()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [historyEnabled, started, selectedAgentId])
 
     const agentSelect = (
         <Select
@@ -251,17 +362,122 @@ const JubirAgent = () => {
                         {agentSelect}
                     </Box>
 
-                    <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                        <ChatMessageV2
-                            ref={chatRef}
-                            open={true}
-                            chatflowid={selectedAgentId}
-                            isAgentCanvas={false}
-                            isDialog={false}
-                            previews={[]}
-                            setPreviews={() => {}}
-                            greeting='Halo! Ada yang bisa Jubir bantu?'
-                        />
+                    <Box sx={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+                        {historyEnabled && (
+                            <Box
+                                sx={{
+                                    width: 260,
+                                    minWidth: 260,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    borderRight: `1px solid ${theme.palette.divider}`,
+                                    backgroundColor: theme.palette.background.paper
+                                }}
+                            >
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.5 }}>
+                                    <Typography
+                                        variant='caption'
+                                        sx={{
+                                            fontWeight: 700,
+                                            letterSpacing: '0.05em',
+                                            textTransform: 'uppercase',
+                                            color: theme.palette.text.secondary
+                                        }}
+                                    >
+                                        Riwayat
+                                    </Typography>
+                                    <IconButton size='small' onClick={handleNewChat} title='Sesi baru'>
+                                        <IconPlus size='1.1rem' />
+                                    </IconButton>
+                                </Box>
+                                <Divider />
+                                <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
+                                    {sessions.length === 0 ? (
+                                        <Box sx={{ px: 2, py: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                                            <IconClockHour4 size='1.4rem' style={{ color: theme.palette.text.secondary, opacity: 0.6 }} />
+                                            <Typography variant='body2' sx={{ color: theme.palette.text.secondary, textAlign: 'center' }}>
+                                                Belum ada riwayat sesi
+                                            </Typography>
+                                        </Box>
+                                    ) : (
+                                        sessions.map((session) => {
+                                            const isActive = session.chatId === activeChatId
+                                            return (
+                                                <Box
+                                                    key={session.chatId}
+                                                    onClick={() => handleSelectSession(session.chatId)}
+                                                    sx={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: 1,
+                                                        mx: 1,
+                                                        px: 1.5,
+                                                        py: 1,
+                                                        borderRadius: '8px',
+                                                        cursor: 'pointer',
+                                                        backgroundColor: isActive ? alpha('#2391FF', 0.1) : 'transparent',
+                                                        '&:hover': {
+                                                            backgroundColor: isActive ? alpha('#2391FF', 0.14) : theme.palette.action.hover
+                                                        },
+                                                        '&:hover .session-delete': { opacity: 1 }
+                                                    }}
+                                                >
+                                                    <IconMessage
+                                                        size='1rem'
+                                                        style={{ flexShrink: 0, color: theme.palette.text.secondary }}
+                                                    />
+                                                    <Typography
+                                                        variant='body2'
+                                                        sx={{
+                                                            flex: 1,
+                                                            minWidth: 0,
+                                                            whiteSpace: 'nowrap',
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            fontSize: '0.8125rem',
+                                                            color: isActive ? theme.palette.text.primary : theme.palette.text.secondary
+                                                        }}
+                                                    >
+                                                        {session.title}
+                                                    </Typography>
+                                                    <IconButton
+                                                        className='session-delete'
+                                                        size='small'
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setSessionToDelete(session)
+                                                        }}
+                                                        sx={{
+                                                            opacity: 0,
+                                                            transition: 'opacity 0.15s',
+                                                            color: theme.palette.text.secondary
+                                                        }}
+                                                        title='Hapus sesi'
+                                                    >
+                                                        <IconTrash size='0.95rem' />
+                                                    </IconButton>
+                                                </Box>
+                                            )
+                                        })
+                                    )}
+                                </Box>
+                            </Box>
+                        )}
+
+                        <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+                            <ChatMessageV2
+                                ref={chatRef}
+                                open={true}
+                                chatflowid={selectedAgentId}
+                                chatId={activeChatId}
+                                isAgentCanvas={false}
+                                isDialog={false}
+                                previews={[]}
+                                setPreviews={() => {}}
+                                greeting='Halo! Ada yang bisa Jubir bantu?'
+                                onMessageSent={refreshSessions}
+                            />
+                        </Box>
                     </Box>
                 </>
             ) : (
@@ -398,6 +614,43 @@ const JubirAgent = () => {
                     </Box>
                 </motion.div>
             )}
+
+            <Dialog open={!!sessionToDelete} onClose={() => (isDeletingSession ? null : setSessionToDelete(null))} maxWidth='xs' fullWidth>
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+                    <Typography variant='h4'>Hapus riwayat sesi</Typography>
+                    <IconButton size='small' onClick={() => setSessionToDelete(null)} disabled={isDeletingSession}>
+                        <IconX size='1rem' />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant='body1' sx={{ color: theme.palette.text.secondary }}>
+                        Hapus sesi &quot;{sessionToDelete?.title}&quot;? Tindakan ini tidak dapat dibatalkan.
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
+                        <IconButton
+                            onClick={() => setSessionToDelete(null)}
+                            disabled={isDeletingSession}
+                            sx={{ borderRadius: '8px', px: 2, fontSize: '0.875rem' }}
+                        >
+                            Batal
+                        </IconButton>
+                        <IconButton
+                            onClick={handleConfirmDeleteSession}
+                            disabled={isDeletingSession}
+                            sx={{
+                                borderRadius: '8px',
+                                px: 2,
+                                fontSize: '0.875rem',
+                                backgroundColor: theme.palette.error.main,
+                                color: '#fff',
+                                '&:hover': { backgroundColor: theme.palette.error.dark }
+                            }}
+                        >
+                            Hapus
+                        </IconButton>
+                    </Box>
+                </DialogContent>
+            </Dialog>
         </Box>
     )
 }

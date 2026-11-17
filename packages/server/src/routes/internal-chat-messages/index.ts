@@ -7,13 +7,21 @@ const router = express.Router()
 
 // READ
 router.get(
+    '/:id/sessions',
+    checkAnyPermission('chatflows:view,chatflows:update,agentflows:view,agentflows:update'),
+    chatMessagesController.getInternalChatSessions
+)
+router.get(
     ['/', '/:id'],
     checkAnyPermission('chatflows:view,chatflows:update,agentflows:view,agentflows:update'),
     chatMessagesController.getAllInternalChatMessages
 )
 
-// UPDATE
-
 // DELETE
+router.delete(
+    '/:id/sessions/:chatId',
+    checkAnyPermission('chatflows:view,chatflows:update,agentflows:view,agentflows:update'),
+    chatMessagesController.removeInternalChatSession
+)
 
 export default router

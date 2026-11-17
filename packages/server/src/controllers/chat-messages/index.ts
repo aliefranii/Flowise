@@ -304,6 +304,73 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
     }
 }
 
+const getInternalChatSessions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (typeof req.params === 'undefined' || !req.params.id) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: chatMessageController.getInternalChatSessions - id not provided!`
+            )
+        }
+        const activeWorkspaceId = req.user?.activeWorkspaceId
+        const apiResponse = await chatMessagesService.getInternalChatSessions(req.params.id, activeWorkspaceId)
+        return res.json(apiResponse)
+    } catch (error) {
+        next(error)
+    }
+}
+
+const removeInternalChatSession = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const chatflowid = req.params.id
+        const chatId = req.params.chatId
+        if (!chatflowid || !chatId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: chatMessageController.removeInternalChatSession - chatflowid or chatId not provided!`
+            )
+        }
+
+        const appServer = getRunningExpressApp()
+        const orgId = req.user?.activeOrganizationId
+        const workspaceId = req.user?.activeWorkspaceId
+        if (!orgId) throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Organization not found')
+        if (!workspaceId) throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Workspace not found')
+
+        const chatflow = await chatflowsService.getChatflowByIdForWorkspace(chatflowid, workspaceId)
+        if (!chatflow) {
+            throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
+        }
+
+        const flowData: IReactFlowObject = JSON.parse(chatflow.flowData)
+        try {
+            await clearSessionMemory(flowData.nodes, appServer.nodesPool.componentNodes, chatId, appServer.AppDataSource, orgId, chatId)
+        } catch (e) {
+            console.error('Error clearing chat session memory')
+        }
+
+        const deleteOptions: FindOptionsWhere<ChatMessage> = { chatflowid, chatId, chatType: In([ChatType.INTERNAL]) }
+        const apiResponse = await chatMessagesService.removeAllChatMessages(
+            chatId,
+            chatflowid,
+            deleteOptions,
+            orgId,
+            workspaceId,
+            appServer.usageCacheManager
+        )
+
+        try {
+            await appServer.AppDataSource.getRepository('Execution').delete({ agentflowId: chatflowid, sessionId: chatId })
+        } catch (e) {
+            console.error('Error clearing chat session executions')
+        }
+
+        return res.json(apiResponse)
+    } catch (error) {
+        next(error)
+    }
+}
+
 const abortChatMessage = async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (typeof req.params === 'undefined' || !req.params.chatflowid || !req.params.chatid) {
@@ -367,5 +434,7 @@ export default {
     getAllChatMessages,
     getAllInternalChatMessages,
     removeAllChatMessages,
+    getInternalChatSessions,
+    removeInternalChatSession,
     abortChatMessage
 }

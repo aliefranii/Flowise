@@ -12,6 +12,7 @@ import {
     IconMessageChatbot,
     IconArrowForwardUp,
     IconThumbUp,
+    IconHistory,
     IconMicrophone,
     IconVolume,
     IconUpload,
@@ -29,6 +30,7 @@ import RateLimit from '@/ui-component/extended/RateLimit'
 import AllowedDomains from '@/ui-component/extended/AllowedDomains'
 import OverrideConfig from '@/ui-component/extended/OverrideConfig'
 import ChatFeedback from '@/ui-component/extended/ChatFeedback'
+import ChatHistory from '@/ui-component/extended/ChatHistory'
 import AnalyseFlow from '@/ui-component/extended/AnalyseFlow'
 import StarterPrompts from '@/ui-component/extended/StarterPrompts'
 import Leads from '@/ui-component/extended/Leads'
@@ -81,6 +83,12 @@ const CONFIGURATION_GROUPS = [
                 id: 'chatFeedback',
                 icon: IconThumbUp,
                 description: 'Allow users to rate responses'
+            },
+            {
+                label: 'Chat History',
+                id: 'chatHistory',
+                icon: IconHistory,
+                description: 'Show saved chat sessions'
             }
         ]
     },
@@ -166,6 +174,8 @@ function getSectionStatus(sectionId, chatflow) {
             return chatbotConfig?.followUpPrompts?.status === true
         case 'chatFeedback':
             return chatbotConfig?.chatFeedback?.status === true
+        case 'chatHistory':
+            return chatbotConfig?.chatHistory?.status === true
         case 'speechToText': {
             if (!chatflow.speechToText) return false
             try {
@@ -261,6 +271,8 @@ const ChatflowConfigurationDialog = ({ show, isAgentCanvas, dialogProps, onCance
                 return <FollowUpPrompts {...props} />
             case 'chatFeedback':
                 return <ChatFeedback {...props} />
+            case 'chatHistory':
+                return <ChatHistory {...props} />
             case 'speechToText':
                 return <SpeechToText {...props} />
             case 'textToSpeech':

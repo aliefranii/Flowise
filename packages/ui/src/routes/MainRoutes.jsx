@@ -93,14 +93,6 @@ const MainRoutes = {
             )
         },
         {
-            path: '/chatflows',
-            element: (
-                <RequireAuth permission={'chatflows:view'}>
-                    <Chatflows />
-                </RequireAuth>
-            )
-        },
-        {
             path: '/agentflows',
             element: (
                 <RequireAuth permission={'agentflows:view'}>

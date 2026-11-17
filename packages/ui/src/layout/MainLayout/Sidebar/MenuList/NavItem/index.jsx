@@ -103,7 +103,7 @@ const NavItem = ({ item, level, navType, onClick, onUploadFile }) => {
                 borderRadius: `${customization.borderRadius}px`,
                 alignItems: 'flex-start',
                 backgroundColor: level > 1 ? 'transparent !important' : 'inherit',
-                py: level > 1 ? 1 : 1.25,
+                py: level > 1 ? 0.25 : 0.5,
                 pl: `${level * 24}px`
             }}
             selected={customization.isOpen.findIndex((id) => id === item.id) > -1}

@@ -181,7 +181,18 @@ CardWithDeleteOverlay.propTypes = {
 }
 
 const ChatMessage = forwardRef(function ChatMessage(
-    { open, chatflowid, isAgentCanvas, isDialog, previews, setPreviews, initialQuestion = '', greeting = 'Hi there! How can I help?' },
+    {
+        open,
+        chatflowid,
+        isAgentCanvas,
+        isDialog,
+        previews,
+        setPreviews,
+        initialQuestion = '',
+        greeting = 'Hi there! How can I help?',
+        chatId: externalChatId,
+        onMessageSent
+    },
     ref
 ) {
     const theme = useTheme()
@@ -1103,6 +1114,7 @@ const ChatMessage = forwardRef(function ChatMessage(
                     ])
 
                     setLocalStorageChatflow(chatflowid, data.chatId)
+                    onMessageSent?.()
                     setLoading(false)
                     setUserInput('')
                     setUploadedFiles([])
@@ -1207,6 +1219,7 @@ const ChatMessage = forwardRef(function ChatMessage(
                         cleanupCalledTools()
                         finalizeThinking()
                         setLocalStorageChatflow(chatflowid, chatId)
+                        onMessageSent?.()
                         closeResponse()
                         break
                 }
@@ -1383,6 +1396,16 @@ const ChatMessage = forwardRef(function ChatMessage(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getAllExecutionsApi.data])
 
+    // Switch chat session when parent controls the chatId
+    useEffect(() => {
+        if (!externalChatId || !chatflowid) return
+        setMessages(initialQuestion ? [] : [{ message: greeting, type: 'apiMessage' }])
+        setChatId(externalChatId)
+        getChatmessageApi.request(chatflowid, { chatId: externalChatId })
+        onMessageSent?.()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [externalChatId, chatflowid])
+
     // Get chatflow streaming capability
     useEffect(() => {
         if (getIsChatflowStreamingApi.data) {
@@ -1433,7 +1456,7 @@ const ChatMessage = forwardRef(function ChatMessage(
                         setFormDescription(startNode.data.inputs?.formDescription)
                     }
 
-                    getAllExecutionsApi.request({ agentflowId: chatflowid })
+                    getAllExecutionsApi.request({ agentflowId: chatflowid, sessionId: externalChatId ?? undefined })
                 }
             }
 
@@ -1540,7 +1563,7 @@ const ChatMessage = forwardRef(function ChatMessage(
     useEffect(() => {
         if (open && chatflowid) {
             // API request
-            getChatmessageApi.request(chatflowid)
+            getChatmessageApi.request(chatflowid, externalChatId ? { chatId: externalChatId } : {})
             getIsChatflowStreamingApi.request(chatflowid)
             getAllowChatFlowUploads.request(chatflowid)
             getChatflowConfig.request(chatflowid)
@@ -3025,7 +3048,9 @@ ChatMessage.propTypes = {
     previews: PropTypes.array,
     setPreviews: PropTypes.func,
     initialQuestion: PropTypes.string,
-    greeting: PropTypes.string
+    greeting: PropTypes.string,
+    chatId: PropTypes.string,
+    onMessageSent: PropTypes.func
 }
 
 export default memo(ChatMessage)

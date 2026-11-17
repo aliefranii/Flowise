@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes'
 import { DeleteResult, FindOptionsWhere, In } from 'typeorm'
 import { ChatMessage } from '../../database/entities/ChatMessage'
 import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback'
+import { ChatFlow } from '../../database/entities/ChatFlow'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { ChatMessageRatingType, ChatType, IChatMessage, MODE } from '../../Interface'
@@ -103,6 +104,73 @@ const getAllInternalChatMessages = async (
         throw new InternalFlowiseError(
             StatusCodes.INTERNAL_SERVER_ERROR,
             `Error: chatMessagesService.getAllInternalChatMessages - ${getErrorMessage(error)}`
+        )
+    }
+}
+
+export interface IChatSessionSummary {
+    chatId: string
+    title: string
+    createdDate: Date
+    updatedDate: Date
+}
+
+const getInternalChatSessions = async (chatflowId: string, activeWorkspaceId?: string): Promise<IChatSessionSummary[]> => {
+    try {
+        if (!activeWorkspaceId) throw new Error('Unauthorized access')
+        const appServer = getRunningExpressApp()
+
+        const chatflow = await appServer.AppDataSource.getRepository(ChatFlow).findOneBy({ id: chatflowId, workspaceId: activeWorkspaceId })
+        if (!chatflow) throw new Error('Unauthorized access')
+
+        const repository = appServer.AppDataSource.getRepository(ChatMessage)
+
+        // ponytail: aggregates in DB, title resolution in JS. Two queries keep it portable across sqlite/mysql/postgres. Upgrade to a single paginated query if agents accumulate thousands of sessions.
+        const rows: Array<{ chatId: string; minDate: Date | string; maxDate: Date | string }> = await repository
+            .createQueryBuilder('chat_message')
+            .select('chat_message.chatId', 'chatId')
+            .addSelect('MIN(chat_message.createdDate)', 'minDate')
+            .addSelect('MAX(chat_message.createdDate)', 'maxDate')
+            .where('chat_message.chatflowid = :chatflowid', { chatflowid: chatflowId })
+            .andWhere('chat_message.chatType = :chatType', { chatType: ChatType.INTERNAL })
+            .groupBy('chat_message.chatId')
+            .orderBy('maxDate', 'DESC')
+            .getRawMany()
+
+        if (rows.length === 0) return []
+
+        const chatIds = rows.map((row) => row.chatId)
+        const firstUserMessages = await repository
+            .createQueryBuilder('chat_message')
+            .select('chat_message.chatId', 'chatId')
+            .addSelect('chat_message.content', 'content')
+            .where('chat_message.chatflowid = :chatflowid', { chatflowid: chatflowId })
+            .andWhere('chat_message.chatType = :chatType', { chatType: ChatType.INTERNAL })
+            .andWhere('chat_message.role = :role', { role: 'userMessage' })
+            .andWhere('chat_message.chatId IN (:...chatIds)', { chatIds })
+            .orderBy('chat_message.createdDate', 'ASC')
+            .getRawMany()
+
+        const titleByChatId = new Map<string, string>()
+        for (const row of firstUserMessages) {
+            if (!titleByChatId.has(row.chatId)) {
+                titleByChatId.set(row.chatId, (row.content ?? '').replace(/\s+/g, ' ').trim())
+            }
+        }
+
+        return rows.map((row) => {
+            const title = titleByChatId.get(row.chatId) ?? ''
+            return {
+                chatId: row.chatId,
+                title: title.length > 60 ? `${title.slice(0, 60)}…` : title || 'Sesi tanpa judul',
+                createdDate: new Date(row.minDate),
+                updatedDate: new Date(row.maxDate)
+            }
+        })
+    } catch (error) {
+        throw new InternalFlowiseError(
+            StatusCodes.INTERNAL_SERVER_ERROR,
+            `Error: chatMessagesService.getInternalChatSessions - ${getErrorMessage(error)}`
         )
     }
 }
@@ -222,6 +290,7 @@ export default {
     createChatMessage,
     getAllChatMessages,
     getAllInternalChatMessages,
+    getInternalChatSessions,
     removeAllChatMessages,
     removeChatMessagesByMessageIds,
     abortChatMessage,
