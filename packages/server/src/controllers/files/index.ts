@@ -8,7 +8,7 @@ import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 
 const getAllFiles = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const activeOrganizationId = req.user?.activeOrganizationId
+        const activeOrganizationId = req.jubirUser?.organizationId
         if (!activeOrganizationId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -29,14 +29,14 @@ const getAllFiles = async (req: Request, res: Response, next: NextFunction) => {
 
 const deleteFile = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const activeOrganizationId = req.user?.activeOrganizationId
+        const activeOrganizationId = req.jubirUser?.organizationId
         if (!activeOrganizationId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: filesController.deleteFile - organization ${activeOrganizationId} not found!`
             )
         }
-        const activeWorkspaceId = req.user?.activeWorkspaceId
+        const activeWorkspaceId = req.jubirUser?.workspaceId
         if (!activeWorkspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

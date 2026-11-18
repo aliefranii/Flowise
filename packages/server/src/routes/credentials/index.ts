@@ -1,22 +1,34 @@
 import express from 'express'
 import credentialsController from '../../controllers/credentials'
-import { checkPermission, checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission, requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 const router = express.Router()
 
 // CREATE
-router.post('/', checkPermission('credentials:create'), credentialsController.createCredential)
+router.post('/', requireJubirPermission('credential', 'create'), credentialsController.createCredential)
 
 // READ
-router.get('/', checkPermission('credentials:view'), credentialsController.getAllCredentials)
-router.get(['/', '/:id'], checkAnyPermission('credentials:create,credentials:update'), credentialsController.getCredentialById)
+router.get('/', requireJubirPermission('credential', 'read'), credentialsController.getAllCredentials)
+router.get(
+    ['/', '/:id'],
+    requireAnyJubirPermission(['credential', 'create'], ['credential', 'update']),
+    credentialsController.getCredentialById
+)
 
 // REVEAL
-router.get('/:id/reveal', checkAnyPermission('credentials:create,credentials:update'), credentialsController.revealCredentialById)
+router.get(
+    '/:id/reveal',
+    requireAnyJubirPermission(['credential', 'create'], ['credential', 'update']),
+    credentialsController.revealCredentialById
+)
 
 // UPDATE
-router.put(['/', '/:id'], checkAnyPermission('credentials:create,credentials:update'), credentialsController.updateCredential)
+router.put(
+    ['/', '/:id'],
+    requireAnyJubirPermission(['credential', 'create'], ['credential', 'update']),
+    credentialsController.updateCredential
+)
 
 // DELETE
-router.delete(['/', '/:id'], checkPermission('credentials:delete'), credentialsController.deleteCredentials)
+router.delete(['/', '/:id'], requireJubirPermission('credential', 'delete'), credentialsController.deleteCredentials)
 
 export default router

@@ -44,7 +44,9 @@ import { ChatFlow } from '../../database/entities/ChatFlow'
 import { DocumentStore } from '../../database/entities/DocumentStore'
 import { DocumentStoreFileChunk } from '../../database/entities/DocumentStoreFileChunk'
 import { UpsertHistory } from '../../database/entities/UpsertHistory'
-import { getWorkspaceSearchOptions } from '../../enterprise/utils/ControllerServiceUtils'
+import { JubirResourceType } from '../../jubir-rbac/entities'
+import { getWorkspaceSearchOptions } from '../../jubir-rbac/utils/controllerUtils'
+import { ensureResourceMapping } from '../../jubir-rbac/utils/resourceMapping'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { validateFileMimeTypeAndExtensionMatch } from '../../utils/fileValidation'
@@ -79,8 +81,12 @@ const createDocumentStore = async (newDocumentStore: DocumentStore, orgId: strin
     }
 }
 
-const getAllDocumentStores = async (workspaceId: string, page: number = -1, limit: number = -1) => {
+const getAllDocumentStores = async (workspaceId: string, page: number = -1, limit: number = -1, allowedIds?: string[]) => {
     try {
+        if (allowedIds !== undefined && allowedIds.length === 0) {
+            return page > 0 && limit > 0 ? { data: [], total: 0 } : []
+        }
+
         const appServer = getRunningExpressApp()
         const queryBuilder = appServer.AppDataSource.getRepository(DocumentStore)
             .createQueryBuilder('doc_store')
@@ -91,6 +97,9 @@ const getAllDocumentStores = async (workspaceId: string, page: number = -1, limi
             queryBuilder.take(limit)
         }
         queryBuilder.andWhere('doc_store.workspaceId = :workspaceId', { workspaceId })
+        if (allowedIds !== undefined) {
+            queryBuilder.andWhere('doc_store.id IN (:...allowedIds)', { allowedIds })
+        }
 
         const [data, total] = await queryBuilder.getManyAndCount()
 
@@ -1486,13 +1495,14 @@ const getRecordManagerProviders = async () => {
     }
 }
 
-const queryVectorStore = async (data: ICommonObject) => {
+const queryVectorStore = async (data: ICommonObject, workspaceId?: string) => {
     try {
         const appServer = getRunningExpressApp()
         const componentNodes = appServer.nodesPool.componentNodes
 
         const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOneBy({
-            id: data.storeId
+            id: data.storeId,
+            ...(workspaceId ? { workspaceId } : {})
         })
         if (!entity) {
             throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Document store ${data.storeId} not found`)
@@ -1797,6 +1807,12 @@ const upsertDocStore = async (
         docStore.workspaceId = workspaceId // enforce trusted server-side value, never from user input
         const documentStore = appDataSource.getRepository(DocumentStore).create(docStore)
         const dbResponse = await appDataSource.getRepository(DocumentStore).save(documentStore)
+        await ensureResourceMapping({
+            resourceId: dbResponse.id,
+            resourceType: JubirResourceType.DOCUMENT_STORE,
+            workspaceId,
+            dataSource: appDataSource
+        })
         storeId = dbResponse.id
     }
 
@@ -2152,9 +2168,22 @@ const refreshDocStoreMiddleware = async (
     }
 }
 
-const generateDocStoreToolDesc = async (docStoreId: string, selectedChatModel: ICommonObject): Promise<ICommonObject> => {
+const generateDocStoreToolDesc = async (
+    docStoreId: string,
+    selectedChatModel: ICommonObject,
+    workspaceId?: string
+): Promise<ICommonObject> => {
     try {
         const appServer = getRunningExpressApp()
+        if (workspaceId) {
+            const store = await appServer.AppDataSource.getRepository(DocumentStore).findOneBy({
+                id: docStoreId,
+                workspaceId
+            })
+            if (!store) {
+                throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `DocumentStore ${docStoreId} not found`)
+            }
+        }
 
         // get matching DocumentStoreFileChunk storeId with docStoreId, and only the first 4 chunks sorted by chunkNo
         const chunks = await appServer.AppDataSource.getRepository(DocumentStoreFileChunk).findBy({
@@ -2210,10 +2239,13 @@ const generateDocStoreToolDesc = async (docStoreId: string, selectedChatModel: I
     }
 }
 
-export const findDocStoreAvailableConfigs = async (storeId: string, docId: string) => {
+export const findDocStoreAvailableConfigs = async (storeId: string, docId: string, workspaceId?: string) => {
     // find the document store
     const appServer = getRunningExpressApp()
-    const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOneBy({ id: storeId })
+    const entity = await appServer.AppDataSource.getRepository(DocumentStore).findOneBy({
+        id: storeId,
+        ...(workspaceId ? { workspaceId } : {})
+    })
 
     if (!entity) {
         throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Document store ${storeId} not found`)

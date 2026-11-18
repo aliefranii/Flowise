@@ -7,7 +7,7 @@ import { getPageAndLimitParams } from '../../utils/pagination'
 const getAllEvaluators = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { page, limit } = getPageAndLimitParams(req)
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -26,7 +26,7 @@ const getEvaluator = async (req: Request, res: Response, next: NextFunction) => 
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: evaluatorService.getEvaluator - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -46,7 +46,7 @@ const createEvaluator = async (req: Request, res: Response, next: NextFunction) 
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: evaluatorService.createEvaluator - body not provided!`)
         }
         const body = req.body
-        body.workspaceId = req.user?.activeWorkspaceId
+        body.workspaceId = req.jubirUser?.workspaceId
         const apiResponse = await evaluatorService.createEvaluator(body)
         return res.json(apiResponse)
     } catch (error) {
@@ -62,7 +62,7 @@ const updateEvaluator = async (req: Request, res: Response, next: NextFunction) 
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: evaluatorService.updateEvaluator - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -81,7 +81,7 @@ const deleteEvaluator = async (req: Request, res: Response, next: NextFunction) 
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: evaluatorService.deleteEvaluator - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

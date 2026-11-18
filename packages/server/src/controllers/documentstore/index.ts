@@ -7,6 +7,10 @@ import { DocumentStoreDTO } from '../../Interface'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { FLOWISE_COUNTER_STATUS, FLOWISE_METRIC_COUNTERS } from '../../Interface.Metrics'
 import { getPageAndLimitParams } from '../../utils/pagination'
+import { JubirResourceType } from '../../jubir-rbac/entities'
+import { allowedResourceIds, assertJubirResourceAccess } from '../../jubir-rbac/middlewares/jubirScope'
+import { deleteResourceMapping, ensureResourceMapping } from '../../jubir-rbac/utils/resourceMapping'
+import { GeneralErrorMessage } from '../../utils/constants'
 
 const createDocumentStore = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -17,7 +21,7 @@ const createDocumentStore = async (req: Request, res: Response, next: NextFuncti
             )
         }
 
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
@@ -26,7 +30,7 @@ const createDocumentStore = async (req: Request, res: Response, next: NextFuncti
         }
 
         const body = req.body
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
@@ -36,6 +40,14 @@ const createDocumentStore = async (req: Request, res: Response, next: NextFuncti
         const docStore = DocumentStoreDTO.toEntity(body)
         docStore.workspaceId = workspaceId
         const apiResponse = await documentStoreService.createDocumentStore(docStore, orgId)
+        await ensureResourceMapping({
+            resourceId: apiResponse.id,
+            resourceType: JubirResourceType.DOCUMENT_STORE,
+            regionId: req.jubirUser?.regionId ?? null,
+            organizationId: orgId,
+            workspaceId,
+            storeId: req.jubirContext?.workspace?.storeId ?? null
+        })
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -44,16 +56,20 @@ const createDocumentStore = async (req: Request, res: Response, next: NextFuncti
 
 const getAllDocumentStores = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        if (!req.jubirUser) {
+            throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, GeneralErrorMessage.UNAUTHORIZED)
+        }
         const { page, limit } = getPageAndLimitParams(req)
 
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.getAllDocumentStores - workspaceId not provided!`
             )
         }
-        const apiResponse: any = await documentStoreService.getAllDocumentStores(workspaceId, page, limit)
+        const allowedIds = await allowedResourceIds(JubirResourceType.DOCUMENT_STORE, req.jubirUser)
+        const apiResponse: any = await documentStoreService.getAllDocumentStores(workspaceId, page, limit, allowedIds)
         if (apiResponse?.total >= 0) {
             return res.json({
                 total: apiResponse.total,
@@ -79,14 +95,14 @@ const deleteLoaderFromDocumentStore = async (req: Request, res: Response, next: 
             )
         }
 
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - organizationId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
@@ -94,6 +110,7 @@ const deleteLoaderFromDocumentStore = async (req: Request, res: Response, next: 
             )
         }
 
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, storeId, req.jubirUser)
         const apiResponse = await documentStoreService.deleteLoaderFromDocumentStore(
             storeId,
             loaderId,
@@ -115,13 +132,14 @@ const getDocumentStoreById = async (req: Request, res: Response, next: NextFunct
                 `Error: documentStoreController.getDocumentStoreById - id not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.getDocumentStoreById - workspaceId not provided!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.id, req.jubirUser)
         const apiResponse = await documentStoreService.getDocumentStoreById(req.params.id, workspaceId)
         if (apiResponse && apiResponse.whereUsed) {
             apiResponse.whereUsed = JSON.stringify(await documentStoreService.getUsedChatflowNames(apiResponse, workspaceId))
@@ -146,13 +164,14 @@ const getDocumentStoreFileChunks = async (req: Request, res: Response, next: Nex
                 `Error: documentStoreController.getDocumentStoreFileChunks - fileId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.getDocumentStoreFileChunks - workspaceId not provided!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.storeId, req.jubirUser)
         const appDataSource = getRunningExpressApp().AppDataSource
         const page = req.params.pageNo ? parseInt(req.params.pageNo) : 1
         const apiResponse = await documentStoreService.getDocumentStoreFileChunks(
@@ -188,13 +207,14 @@ const deleteDocumentStoreFileChunk = async (req: Request, res: Response, next: N
                 `Error: documentStoreController.deleteDocumentStoreFileChunk - chunkId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.deleteDocumentStoreFileChunk - workspaceId not provided!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.storeId, req.jubirUser)
         const apiResponse = await documentStoreService.deleteDocumentStoreFileChunk(
             req.params.storeId,
             req.params.loaderId,
@@ -234,13 +254,14 @@ const editDocumentStoreFileChunk = async (req: Request, res: Response, next: Nex
                 `Error: documentStoreController.editDocumentStoreFileChunk - body not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.editDocumentStoreFileChunk - workspaceId not provided!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.storeId, req.jubirUser)
         const apiResponse = await documentStoreService.editDocumentStoreFileChunk(
             req.params.storeId,
             req.params.loaderId,
@@ -265,12 +286,15 @@ const saveProcessingLoader = async (req: Request, res: Response, next: NextFunct
             )
         }
         const body = req.body
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.saveProcessingLoader - workspaceId not provided!`
             )
+        }
+        if (body.storeId) {
+            await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, body.storeId, req.jubirUser)
         }
         const apiResponse = await documentStoreService.saveProcessingLoader(appServer.AppDataSource, body, workspaceId)
         return res.json(apiResponse)
@@ -293,24 +317,27 @@ const processLoader = async (req: Request, res: Response, next: NextFunction) =>
                 `Error: documentStoreController.processLoader - body not provided!`
             )
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - organizationId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - workspaceId not provided!`
             )
         }
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
         const docLoaderId = req.params.loaderId
         const body = req.body
         const isInternalRequest = req.headers['x-request-from'] === 'internal'
+        if (body.storeId) {
+            await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, body.storeId, req.jubirUser)
+        }
         const apiResponse = await documentStoreService.processLoaderMiddleware(
             body,
             docLoaderId,
@@ -340,13 +367,14 @@ const updateDocumentStore = async (req: Request, res: Response, next: NextFuncti
                 `Error: documentStoreController.updateDocumentStore - body not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.updateDocumentStore - workspaceId not provided!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.id, req.jubirUser)
         const store = await documentStoreService.getDocumentStoreById(req.params.id, workspaceId)
         if (!store) {
             throw new InternalFlowiseError(
@@ -379,26 +407,28 @@ const deleteDocumentStore = async (req: Request, res: Response, next: NextFuncti
                 `Error: documentStoreController.deleteDocumentStore - storeId not provided!`
             )
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - organizationId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - workspaceId not provided!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.id, req.jubirUser)
         const apiResponse = await documentStoreService.deleteDocumentStore(
             req.params.id,
             orgId,
             workspaceId,
             getRunningExpressApp().usageCacheManager
         )
+        await deleteResourceMapping(JubirResourceType.DOCUMENT_STORE, req.params.id)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -413,23 +443,24 @@ const previewFileChunks = async (req: Request, res: Response, next: NextFunction
                 `Error: documentStoreController.previewFileChunks - body not provided!`
             )
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - organizationId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - workspaceId not provided!`
             )
         }
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
         const body = req.body
         if (body.storeId) {
+            await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, body.storeId as string, req.jubirUser)
             const store = await documentStoreService.getDocumentStoreById(body.storeId as string, workspaceId)
             if (!store) {
                 throw new InternalFlowiseError(StatusCodes.NOT_FOUND, 'Document store not found')
@@ -463,23 +494,28 @@ const insertIntoVectorStore = async (req: Request, res: Response, next: NextFunc
         if (typeof req.body === 'undefined') {
             throw new Error('Error: documentStoreController.insertIntoVectorStore - body not provided!')
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - organizationId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - workspaceId not provided!`
             )
         }
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
         const body = req.body
         const isStrictSave = body.isStrictSave ?? false
+        const isCreatingNewStore =
+            typeof body.createNewDocStore === 'string' ? body.createNewDocStore.toLowerCase() === 'true' : Boolean(body.createNewDocStore)
+        if (!isCreatingNewStore && body.storeId) {
+            await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, body.storeId as string, req.jubirUser)
+        }
         const apiResponse = await documentStoreService.insertIntoVectorStoreMiddleware(
             body,
             isStrictSave,
@@ -505,8 +541,18 @@ const queryVectorStore = async (req: Request, res: Response, next: NextFunction)
         if (typeof req.body === 'undefined') {
             throw new Error('Error: documentStoreController.queryVectorStore - body not provided!')
         }
+        const workspaceId = req.jubirUser?.workspaceId
+        if (!workspaceId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: documentStoreController.queryVectorStore - workspaceId not provided!`
+            )
+        }
         const body = req.body
-        const apiResponse = await documentStoreService.queryVectorStore(body)
+        if (body.storeId) {
+            await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, body.storeId as string, req.jubirUser)
+        }
+        const apiResponse = await documentStoreService.queryVectorStore(body, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -521,13 +567,14 @@ const deleteVectorStoreFromStore = async (req: Request, res: Response, next: Nex
                 `Error: documentStoreController.deleteVectorStoreFromStore - storeId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.deleteVectorStoreFromStore - workspaceId not provided!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.storeId, req.jubirUser)
         const apiResponse = await documentStoreService.deleteVectorStoreFromStore(
             req.params.storeId,
             workspaceId,
@@ -546,12 +593,15 @@ const saveVectorStoreConfig = async (req: Request, res: Response, next: NextFunc
         }
         const body = req.body
         const appDataSource = getRunningExpressApp().AppDataSource
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.saveVectorStoreConfig - workspaceId not provided!`
             )
+        }
+        if (body.storeId) {
+            await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, body.storeId as string, req.jubirUser)
         }
         const apiResponse = await documentStoreService.saveVectorStoreConfig(appDataSource, body, true, workspaceId)
         return res.json(apiResponse)
@@ -566,12 +616,15 @@ const updateVectorStoreConfigOnly = async (req: Request, res: Response, next: Ne
             throw new Error('Error: documentStoreController.updateVectorStoreConfigOnly - body not provided!')
         }
         const body = req.body
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.updateVectorStoreConfigOnly - workspaceId not provided!`
             )
+        }
+        if (body.storeId) {
+            await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, body.storeId as string, req.jubirUser)
         }
         const apiResponse = await documentStoreService.updateVectorStoreConfigOnly(body, workspaceId)
         return res.json(apiResponse)
@@ -618,23 +671,24 @@ const upsertDocStoreMiddleware = async (req: Request, res: Response, next: NextF
         if (typeof req.body === 'undefined') {
             throw new Error('Error: documentStoreController.upsertDocStoreMiddleware - body not provided!')
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - organizationId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - workspaceId not provided!`
             )
         }
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
         const body = req.body
         const files = (req.files as Express.Multer.File[]) || []
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.id, req.jubirUser)
         const apiResponse = await documentStoreService.upsertDocStoreMiddleware(
             req.params.id,
             body,
@@ -664,22 +718,23 @@ const refreshDocStoreMiddleware = async (req: Request, res: Response, next: Next
                 `Error: documentStoreController.refreshDocStoreMiddleware - storeId not provided!`
             )
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - organizationId not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.PRECONDITION_FAILED,
                 `Error: documentStoreController.createDocumentStore - workspaceId not provided!`
             )
         }
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
         const body = req.body
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.id, req.jubirUser)
         const apiResponse = await documentStoreService.refreshDocStoreMiddleware(
             req.params.id,
             body,
@@ -711,7 +766,15 @@ const generateDocStoreToolDesc = async (req: Request, res: Response, next: NextF
         if (typeof req.body === 'undefined') {
             throw new Error('Error: documentStoreController.generateDocStoreToolDesc - body not provided!')
         }
-        const apiResponse = await documentStoreService.generateDocStoreToolDesc(req.params.id, req.body.selectedChatModel)
+        const workspaceId = req.jubirUser?.workspaceId
+        if (!workspaceId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: documentStoreController.generateDocStoreToolDesc - workspaceId not provided!`
+            )
+        }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.id, req.jubirUser)
+        const apiResponse = await documentStoreService.generateDocStoreToolDesc(req.params.id, req.body.selectedChatModel, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -732,7 +795,15 @@ const getDocStoreConfigs = async (req: Request, res: Response, next: NextFunctio
                 `Error: documentStoreController.getDocStoreConfigs - doc loader Id not provided!`
             )
         }
-        const apiResponse = await documentStoreService.findDocStoreAvailableConfigs(req.params.id, req.params.loaderId)
+        const workspaceId = req.jubirUser?.workspaceId
+        if (!workspaceId) {
+            throw new InternalFlowiseError(
+                StatusCodes.PRECONDITION_FAILED,
+                `Error: documentStoreController.getDocStoreConfigs - workspaceId not provided!`
+            )
+        }
+        await assertJubirResourceAccess(JubirResourceType.DOCUMENT_STORE, req.params.id, req.jubirUser)
+        const apiResponse = await documentStoreService.findDocStoreAvailableConfigs(req.params.id, req.params.loaderId, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)

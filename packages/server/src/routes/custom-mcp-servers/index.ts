@@ -1,24 +1,32 @@
 import express from 'express'
 import customMcpServersController from '../../controllers/custom-mcp-servers'
-import { checkAnyPermission, checkPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireAnyJubirPermission, requireJubirPermission } from '../../jubir-rbac/middlewares/permission'
 
 const router = express.Router()
 
 // CREATE
-router.post('/', checkPermission('tools:create'), customMcpServersController.createCustomMcpServer)
+router.post('/', requireJubirPermission('agentflow', 'create'), customMcpServersController.createCustomMcpServer)
 
 // READ
-router.get('/', checkPermission('tools:view'), customMcpServersController.getAllCustomMcpServers)
-router.get('/:id', checkPermission('tools:view'), customMcpServersController.getCustomMcpServerById)
-router.get('/:id/tools', checkPermission('tools:view'), customMcpServersController.getDiscoveredTools)
+router.get('/', requireJubirPermission('agentflow', 'read'), customMcpServersController.getAllCustomMcpServers)
+router.get('/:id', requireJubirPermission('agentflow', 'read'), customMcpServersController.getCustomMcpServerById)
+router.get('/:id/tools', requireJubirPermission('agentflow', 'read'), customMcpServersController.getDiscoveredTools)
 
 // UPDATE
-router.put('/:id', checkAnyPermission('tools:update,tools:create'), customMcpServersController.updateCustomMcpServer)
+router.put(
+    '/:id',
+    requireAnyJubirPermission(['agentflow', 'update'], ['agentflow', 'create']),
+    customMcpServersController.updateCustomMcpServer
+)
 
 // AUTHORIZE (connect to server & discover tools)
-router.post('/:id/authorize', checkAnyPermission('tools:update,tools:create'), customMcpServersController.authorizeCustomMcpServer)
+router.post(
+    '/:id/authorize',
+    requireAnyJubirPermission(['agentflow', 'update'], ['agentflow', 'create']),
+    customMcpServersController.authorizeCustomMcpServer
+)
 
 // DELETE
-router.delete('/:id', checkPermission('tools:delete'), customMcpServersController.deleteCustomMcpServer)
+router.delete('/:id', requireJubirPermission('agentflow', 'delete'), customMcpServersController.deleteCustomMcpServer)
 
 export default router

@@ -1,14 +1,14 @@
 import express from 'express'
 import openaiAssistantsController from '../../controllers/openai-assistants'
-import { checkPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission } from '../../jubir-rbac/middlewares/permission'
 
 const router = express.Router()
 
 // CREATE
 
 // READ
-router.get('/', checkPermission('assistants:view'), openaiAssistantsController.getAllOpenaiAssistants)
-router.get(['/', '/:id'], checkPermission('assistants:view'), openaiAssistantsController.getSingleOpenaiAssistant)
+router.get('/', requireJubirPermission('agentflow', 'read'), openaiAssistantsController.getAllOpenaiAssistants)
+router.get(['/', '/:id'], requireJubirPermission('agentflow', 'read'), openaiAssistantsController.getSingleOpenaiAssistant)
 
 // UPDATE
 

@@ -1,20 +1,20 @@
 import express from 'express'
 import openaiRealTimeController from '../../controllers/openai-realtime'
-import { checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 
 const router = express.Router()
 
 // GET
 router.get(
     ['/', '/:id'],
-    checkAnyPermission('chatflows:view,chatflows:create,chatflows:update,chatflows:delete'),
+    requireAnyJubirPermission(['agentflow', 'read'], ['agentflow', 'create'], ['agentflow', 'update'], ['agentflow', 'delete']),
     openaiRealTimeController.getAgentTools
 )
 
 // EXECUTE
 router.post(
     ['/', '/:id'],
-    checkAnyPermission('chatflows:view,chatflows:create,chatflows:update,chatflows:delete'),
+    requireAnyJubirPermission(['agentflow', 'read'], ['agentflow', 'create'], ['agentflow', 'update'], ['agentflow', 'delete']),
     openaiRealTimeController.executeAgentTool
 )
 

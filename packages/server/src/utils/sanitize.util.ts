@@ -1,5 +1,11 @@
-import { User } from '../enterprise/database/entities/user.entity'
 import { isIPv4, isIPv6, isValidIPAddress } from './ipValidation'
+
+export interface SanitizableUser {
+    credential?: unknown
+    tempToken?: unknown
+    tokenExpiry?: unknown
+    [key: string]: any
+}
 
 export function sanitizeNullBytes(obj: any): any {
     const stack = [obj]
@@ -34,7 +40,7 @@ export function sanitizeNullBytes(obj: any): any {
     return obj
 }
 
-export function sanitizeUser(user: Partial<User>) {
+export function sanitizeUser<T extends SanitizableUser>(user: T): T {
     delete user.credential
     delete user.tempToken
     delete user.tokenExpiry

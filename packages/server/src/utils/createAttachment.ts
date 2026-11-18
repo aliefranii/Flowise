@@ -17,8 +17,8 @@ import logger from './logger'
 import { getErrorMessage } from '../errors/utils'
 import { checkStorage, updateStorageUsage } from './quotaUsage'
 import { ChatFlow } from '../database/entities/ChatFlow'
-import { Workspace } from '../enterprise/database/entities/workspace.entity'
-import { Organization } from '../enterprise/database/entities/organization.entity'
+import { JubirWorkspace as Workspace } from '../jubir-rbac/entities'
+import { JubirOrganization as Organization } from '../jubir-rbac/entities'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
 
@@ -47,11 +47,11 @@ export const createFileAttachment = async (req: Request) => {
         throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `Chatflow ${chatflowid} not found`)
     }
 
-    let orgId = req.user?.activeOrganizationId || ''
-    let workspaceId = req.user?.activeWorkspaceId || ''
-    let subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+    let orgId = req.jubirUser?.organizationId || ''
+    let workspaceId = req.jubirUser?.workspaceId || ''
+    let subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
 
-    // This is one of the WHITELIST_URLS, API can be public and there might be no req.user
+    // This is one of the WHITELIST_URLS, API can be public and there might be no req.jubirUser
     if (!orgId || !workspaceId) {
         const chatflowWorkspaceId = chatflow.workspaceId
         const workspace = await appServer.AppDataSource.getRepository(Workspace).findOneBy({

@@ -25,7 +25,7 @@ const createPrediction = async (req: Request, res: Response, next: NextFunction)
                 `Error: predictionsController.createPrediction - body not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId ?? undefined
 
         const chatflow = await chatflowsService.getChatflowById(req.params.id, workspaceId)
         if (!chatflow) {

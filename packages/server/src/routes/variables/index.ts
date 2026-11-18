@@ -1,19 +1,19 @@
 import express from 'express'
 import variablesController from '../../controllers/variables'
-import { checkAnyPermission, checkPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireAnyJubirPermission, requireJubirPermission } from '../../jubir-rbac/middlewares/permission'
 
 const router = express.Router()
 
 // CREATE
-router.post('/', checkPermission('variables:create'), variablesController.createVariable)
+router.post('/', requireJubirPermission('agentflow', 'create'), variablesController.createVariable)
 
 // READ
-router.get('/', checkPermission('variables:view'), variablesController.getAllVariables)
+router.get('/', requireJubirPermission('agentflow', 'read'), variablesController.getAllVariables)
 
 // UPDATE
-router.put(['/', '/:id'], checkAnyPermission('variables:create,variables:update'), variablesController.updateVariable)
+router.put(['/', '/:id'], requireAnyJubirPermission(['agentflow', 'create'], ['agentflow', 'update']), variablesController.updateVariable)
 
 // DELETE
-router.delete(['/', '/:id'], checkPermission('variables:delete'), variablesController.deleteVariable)
+router.delete(['/', '/:id'], requireJubirPermission('agentflow', 'delete'), variablesController.deleteVariable)
 
 export default router

@@ -8,7 +8,7 @@ import { stripProtectedFields } from '../../utils/stripProtectedFields'
 const getAllDatasets = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { page, limit } = getPageAndLimitParams(req)
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -28,7 +28,7 @@ const getDataset = async (req: Request, res: Response, next: NextFunction) => {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: datasetService.getDataset - id not provided!`)
         }
         const { page, limit } = getPageAndLimitParams(req)
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -47,7 +47,7 @@ const createDataset = async (req: Request, res: Response, next: NextFunction) =>
         if (!req.body) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: datasetService.createDataset - body not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -70,7 +70,7 @@ const updateDataset = async (req: Request, res: Response, next: NextFunction) =>
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: datasetService.updateDataset - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -89,7 +89,7 @@ const deleteDataset = async (req: Request, res: Response, next: NextFunction) =>
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: datasetService.deleteDataset - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -111,7 +111,7 @@ const addDatasetRow = async (req: Request, res: Response, next: NextFunction) =>
         if (!req.body.datasetId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: datasetService.addDatasetRow - datasetId not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -134,7 +134,7 @@ const updateDatasetRow = async (req: Request, res: Response, next: NextFunction)
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: datasetService.updateDatasetRow - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -154,7 +154,7 @@ const deleteDatasetRow = async (req: Request, res: Response, next: NextFunction)
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: datasetService.deleteDatasetRow - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -171,7 +171,7 @@ const deleteDatasetRow = async (req: Request, res: Response, next: NextFunction)
 const patchDeleteRows = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const ids = req.body.ids ?? []
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -190,7 +190,7 @@ const reorderDatasetRow = async (req: Request, res: Response, next: NextFunction
         if (!req.body) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: datasetService.reorderDatasetRow - body not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

@@ -1,10 +1,10 @@
 import express from 'express'
 import webhookListenerController from '../../controllers/webhook-listener'
-import { checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 
 const router = express.Router()
 
-const requireFlowEdit = checkAnyPermission('chatflows:create,chatflows:update,agentflows:create,agentflows:update')
+const requireFlowEdit = requireAnyJubirPermission(['agentflow', 'create'], ['agentflow', 'update'])
 
 router.post('/:id/register', requireFlowEdit, webhookListenerController.registerListener)
 router.get('/:id/stream/:listenerId', requireFlowEdit, webhookListenerController.streamListener)

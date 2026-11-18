@@ -1,21 +1,21 @@
 import express from 'express'
 import assistantsController from '../../controllers/assistants'
-import { checkPermission, checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission, requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 
 const router = express.Router()
 
 // CREATE
-router.post('/', checkPermission('assistants:create'), assistantsController.createAssistant)
+router.post('/', requireJubirPermission('agentflow', 'create'), assistantsController.createAssistant)
 
 // READ
-router.get('/', checkPermission('assistants:view'), assistantsController.getAllAssistants)
-router.get(['/', '/:id'], checkPermission('assistants:view'), assistantsController.getAssistantById)
+router.get('/', requireJubirPermission('agentflow', 'read'), assistantsController.getAllAssistants)
+router.get(['/', '/:id'], requireJubirPermission('agentflow', 'read'), assistantsController.getAssistantById)
 
 // UPDATE
-router.put(['/', '/:id'], checkAnyPermission('assistants:create,assistants:update'), assistantsController.updateAssistant)
+router.put(['/', '/:id'], requireAnyJubirPermission(['agentflow', 'create'], ['agentflow', 'update']), assistantsController.updateAssistant)
 
 // DELETE
-router.delete(['/', '/:id'], checkPermission('assistants:delete'), assistantsController.deleteAssistant)
+router.delete(['/', '/:id'], requireJubirPermission('agentflow', 'delete'), assistantsController.deleteAssistant)
 
 router.get('/components/chatmodels', assistantsController.getChatModels)
 router.get('/components/docstores', assistantsController.getDocumentStores)

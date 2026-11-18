@@ -50,8 +50,8 @@ jest.mock('../../database/entities/ScheduleRecord', () => ({
     ScheduleRecord: class ScheduleRecord {},
     ScheduleTriggerType: { AGENTFLOW: 'AGENTFLOW' }
 }))
-jest.mock('../../enterprise/database/entities/workspace.entity', () => ({ Workspace: class Workspace {} }))
-jest.mock('../../enterprise/utils/ControllerServiceUtils', () => ({ getWorkspaceSearchOptions: jest.fn().mockReturnValue({}) }))
+jest.mock('../../jubir-rbac/entities', () => ({ JubirWorkspace: class JubirWorkspace {} }))
+jest.mock('../../jubir-rbac/utils/controllerUtils', () => ({ getWorkspaceSearchOptions: jest.fn().mockReturnValue({}) }))
 jest.mock('../../errors/internalFlowiseError', () => ({
     InternalFlowiseError: class InternalFlowiseError extends Error {
         constructor(public statusCode: number, message: string) {

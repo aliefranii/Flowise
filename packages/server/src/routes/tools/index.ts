@@ -1,20 +1,20 @@
 import express from 'express'
 import toolsController from '../../controllers/tools'
-import { checkAnyPermission, checkPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireAnyJubirPermission, requireJubirPermission } from '../../jubir-rbac/middlewares/permission'
 
 const router = express.Router()
 
 // CREATE
-router.post('/', checkPermission('tools:create'), toolsController.createTool)
+router.post('/', requireJubirPermission('agentflow', 'create'), toolsController.createTool)
 
 // READ
-router.get('/', checkPermission('tools:view'), toolsController.getAllTools)
-router.get(['/', '/:id'], checkAnyPermission('tools:view'), toolsController.getToolById)
+router.get('/', requireJubirPermission('agentflow', 'read'), toolsController.getAllTools)
+router.get(['/', '/:id'], requireJubirPermission('agentflow', 'read'), toolsController.getToolById)
 
 // UPDATE
-router.put(['/', '/:id'], checkAnyPermission('tools:update,tools:create'), toolsController.updateTool)
+router.put(['/', '/:id'], requireAnyJubirPermission(['agentflow', 'update'], ['agentflow', 'create']), toolsController.updateTool)
 
 // DELETE
-router.delete(['/', '/:id'], checkPermission('tools:delete'), toolsController.deleteTool)
+router.delete(['/', '/:id'], requireJubirPermission('agentflow', 'delete'), toolsController.deleteTool)
 
 export default router

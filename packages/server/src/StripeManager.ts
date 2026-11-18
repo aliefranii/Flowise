@@ -124,12 +124,12 @@ export class StripeManager {
             throw new Error('Stripe is not initialized')
         }
 
-        const customerId = req.user?.activeOrganizationCustomerId
+        const customerId = req.jubirContext?.organization?.customerId
         if (!customerId) {
             throw new Error('Customer ID is required')
         }
 
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId
         if (!subscriptionId) {
             throw new Error('Subscription ID is required')
         }

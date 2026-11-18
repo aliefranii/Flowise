@@ -9,7 +9,7 @@ const getChatflowStats = async (req: Request, res: Response, next: NextFunction)
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: statsController.getChatflowStats - id not provided!`)
         }
-        const activeWorkspaceId = req.user?.activeWorkspaceId
+        const activeWorkspaceId = req.jubirUser?.workspaceId
         if (!activeWorkspaceId) {
             throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, `Error: statsController.getChatflowStats - unauthorized!`)
         }

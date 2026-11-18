@@ -5,7 +5,7 @@ import exportImportService from '../../services/export-import'
 
 const exportData = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -21,21 +21,21 @@ const exportData = async (req: Request, res: Response, next: NextFunction) => {
 
 const importData = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: exportImportController.importData - organization ${orgId} not found!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: exportImportController.importData - workspace ${workspaceId} not found!`
             )
         }
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
 
         const importData = req.body
         if (!importData) {
@@ -51,7 +51,7 @@ const importData = async (req: Request, res: Response, next: NextFunction) => {
 
 const exportChatflowMessages = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

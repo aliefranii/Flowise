@@ -63,7 +63,7 @@ const getAllChatMessages = async (req: Request, res: Response, next: NextFunctio
                 chatTypes = [_chatTypes as ChatType]
             }
         }
-        const activeWorkspaceId = req.user?.activeWorkspaceId
+        const activeWorkspaceId = req.jubirUser?.workspaceId ?? undefined
         const sortOrder = req.query?.order as string | undefined
         const chatId = req.query?.chatId as string | undefined
         const memoryType = req.query?.memoryType as string | undefined
@@ -109,7 +109,7 @@ const getAllChatMessages = async (req: Request, res: Response, next: NextFunctio
 
 const getAllInternalChatMessages = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const activeWorkspaceId = req.user?.activeWorkspaceId
+        const activeWorkspaceId = req.jubirUser?.workspaceId ?? undefined
         const sortOrder = req.query?.order as string | undefined
         const chatId = req.query?.chatId as string | undefined
         const memoryType = req.query?.memoryType as string | undefined
@@ -151,14 +151,14 @@ const removeAllChatMessages = async (req: Request, res: Response, next: NextFunc
                 'Error: chatMessagesController.removeAllChatMessages - id not provided!'
             )
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: chatMessagesController.removeAllChatMessages - organization ${orgId} not found!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId ?? undefined
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -312,7 +312,7 @@ const getInternalChatSessions = async (req: Request, res: Response, next: NextFu
                 `Error: chatMessageController.getInternalChatSessions - id not provided!`
             )
         }
-        const activeWorkspaceId = req.user?.activeWorkspaceId
+        const activeWorkspaceId = req.jubirUser?.workspaceId ?? undefined
         const apiResponse = await chatMessagesService.getInternalChatSessions(req.params.id, activeWorkspaceId)
         return res.json(apiResponse)
     } catch (error) {
@@ -332,8 +332,8 @@ const removeInternalChatSession = async (req: Request, res: Response, next: Next
         }
 
         const appServer = getRunningExpressApp()
-        const orgId = req.user?.activeOrganizationId
-        const workspaceId = req.user?.activeWorkspaceId
+        const orgId = req.jubirUser?.organizationId
+        const workspaceId = req.jubirUser?.workspaceId ?? undefined
         if (!orgId) throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Organization not found')
         if (!workspaceId) throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, 'Workspace not found')
 

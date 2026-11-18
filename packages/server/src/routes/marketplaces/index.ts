@@ -1,17 +1,17 @@
 import express from 'express'
 import marketplacesController from '../../controllers/marketplaces'
-import { checkPermission, checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission } from '../../jubir-rbac/middlewares/permission'
 const router = express.Router()
 
 // READ
-router.get('/templates', checkPermission('templates:marketplace'), marketplacesController.getAllTemplates)
+router.get('/templates', requireJubirPermission('agentflow', 'read'), marketplacesController.getAllTemplates)
 
-router.post('/custom', checkAnyPermission('templates:flowexport,templates:toolexport'), marketplacesController.saveCustomTemplate)
+router.post('/custom', requireJubirPermission('agentflow', 'create'), marketplacesController.saveCustomTemplate)
 
 // READ
-router.get('/custom', checkPermission('templates:custom'), marketplacesController.getAllCustomTemplates)
+router.get('/custom', requireJubirPermission('agentflow', 'read'), marketplacesController.getAllCustomTemplates)
 
 // DELETE
-router.delete(['/', '/custom/:id'], checkPermission('templates:custom-delete'), marketplacesController.deleteCustomTemplate)
+router.delete(['/', '/custom/:id'], requireJubirPermission('agentflow', 'delete'), marketplacesController.deleteCustomTemplate)
 
 export default router

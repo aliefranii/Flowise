@@ -1,17 +1,24 @@
 import { NextFunction, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
-import { LoggedInUser } from '../../enterprise/Interface.Enterprise'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
+import { isJubirOrganizationAdmin } from '../../jubir-rbac/utils/controllerUtils'
 import apikeyService from '../../services/apikey'
 import { getPageAndLimitParams } from '../../utils/pagination'
 
 // Get api keys
 const getAllApiKeys = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const user = req.user as LoggedInUser
+        const user = req.jubirUser
+        if (!user) {
+            throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, 'Unauthorized')
+        }
 
-        if (req.query?.type === 'organization' && user.isOrganizationAdmin)
-            return res.status(StatusCodes.OK).json(await apikeyService.getAllApiKeysByOrganization(user.activeOrganizationId))
+        if (req.query?.type === 'organization' && isJubirOrganizationAdmin(user.role)) {
+            if (!user.organizationId) {
+                throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'Organization ID is required')
+            }
+            return res.status(StatusCodes.OK).json(await apikeyService.getAllApiKeysByOrganization(user.organizationId))
+        }
 
         const { page, limit } = getPageAndLimitParams(req)
         const apiResponse = await apikeyService.getAllApiKeys(user, page, limit)
@@ -37,7 +44,10 @@ const createApiKey = async (req: Request, res: Response, next: NextFunction) => 
                 `Error: apikeyController.createApiKey - permissions must be an array of strings!`
             )
         }
-        const user = req.user as LoggedInUser
+        const user = req.jubirUser
+        if (!user) {
+            throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, 'Unauthorized')
+        }
         const apiResponse = await apikeyService.createApiKey(user, req.body.keyName, req.body.permissions)
         return res.json(apiResponse)
     } catch (error) {
@@ -65,7 +75,10 @@ const updateApiKey = async (req: Request, res: Response, next: NextFunction) => 
                 `Error: apikeyController.updateApiKey - permissions must be an array of strings!`
             )
         }
-        const user = req.user as LoggedInUser
+        const user = req.jubirUser
+        if (!user) {
+            throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, 'Unauthorized')
+        }
         const apiResponse = await apikeyService.updateApiKey(user, req.params.id, req.body.keyName, req.body.permissions)
         return res.json(apiResponse)
     } catch (error) {
@@ -79,10 +92,11 @@ const deleteApiKey = async (req: Request, res: Response, next: NextFunction) => 
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: apikeyController.deleteApiKey - id not provided!`)
         }
-        if (!req.user?.activeWorkspaceId) {
+        const workspaceId = req.jubirUser?.workspaceId
+        if (!workspaceId) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Workspace ID is required`)
         }
-        const apiResponse = await apikeyService.deleteApiKey(req.params.id, req.user?.activeWorkspaceId)
+        const apiResponse = await apikeyService.deleteApiKey(req.params.id, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
         next(error)

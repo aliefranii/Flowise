@@ -7,7 +7,7 @@ import { StatusCodes } from 'http-status-codes'
 import { streamStorageFile } from 'flowise-components'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
 import { ChatFlow } from '../../database/entities/ChatFlow'
-import { Workspace } from '../../enterprise/database/entities/workspace.entity'
+import { JubirWorkspace as Workspace } from '../../jubir-rbac/entities'
 import { validateFileMimeTypeAndExtensionMatch } from '../../utils/fileValidation'
 
 // List available assistants
@@ -19,7 +19,7 @@ const getAllOpenaiAssistants = async (req: Request, res: Response, next: NextFun
                 `Error: openaiAssistantsController.getAllOpenaiAssistants - credential not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -48,7 +48,7 @@ const getSingleOpenaiAssistant = async (req: Request, res: Response, next: NextF
                 `Error: openaiAssistantsController.getSingleOpenaiAssistant - credential not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -116,7 +116,7 @@ const uploadAssistantFiles = async (req: Request, res: Response, next: NextFunct
                 `Error: openaiAssistantsVectorStoreController.uploadFilesToAssistantVectorStore - credential not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

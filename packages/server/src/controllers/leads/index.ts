@@ -12,7 +12,7 @@ const getAllLeadsForChatflow = async (req: Request, res: Response, next: NextFun
                 `Error: leadsController.getAllLeadsForChatflow - id not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

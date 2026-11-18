@@ -4,7 +4,7 @@ import nodesService from '../../services/nodes'
 import { ClientType, VALID_CLIENT_TYPES } from 'flowise-components'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { StatusCodes } from 'http-status-codes'
-import { getWorkspaceSearchOptionsFromReq } from '../../enterprise/utils/ControllerServiceUtils'
+import { getJubirPermissions, getWorkspaceSearchOptionsFromReq, isJubirOrganizationAdmin } from '../../jubir-rbac/utils/controllerUtils'
 
 // if req.query.client does not contain a valid client type, then return undefined so it won't filter the nodes unnecessarily
 const parseClientParam = (req: Request): ClientType | undefined => {
@@ -77,7 +77,7 @@ const getSingleNodeAsyncOptions = async (req: Request, res: Response, next: Next
         }
         const body = req.body
         body.searchOptions = getWorkspaceSearchOptionsFromReq(req)
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId ?? undefined
         const apiResponse = await nodesService.getSingleNodeAsyncOptions(req.params.name, body, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
@@ -93,9 +93,11 @@ const executeCustomFunction = async (req: Request, res: Response, next: NextFunc
                 `Error: nodesController.executeCustomFunction - body not provided!`
             )
         }
-        const orgId = req.user?.activeOrganizationId
-        const workspaceId = req.user?.activeWorkspaceId
-        const canViewVariables = !!(req.user?.isOrganizationAdmin || req.user?.permissions?.includes('variables:view'))
+        const orgId = req.jubirUser?.organizationId ?? undefined
+        const workspaceId = req.jubirUser?.workspaceId ?? undefined
+        const canViewVariables = !!(
+            isJubirOrganizationAdmin(req.jubirUser?.role) || getJubirPermissions(req.jubirUser?.role).includes('variables:view')
+        )
         const apiResponse = await nodesService.executeCustomFunction(req.body, workspaceId, orgId, canViewVariables)
         return res.json(apiResponse)
     } catch (error) {

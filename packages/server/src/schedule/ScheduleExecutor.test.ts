@@ -111,8 +111,8 @@ beforeEach(() => {
     mockAppDataSource = {
         getRepository: jest.fn().mockImplementation((Entity: any) => {
             const name = Entity?.name ?? ''
-            if (name === 'Workspace') return { findOneBy: mockWorkspaceFindOneBy }
-            if (name === 'Organization') return { findOneBy: mockOrgFindOneBy }
+            if (name === 'Workspace' || name === 'JubirWorkspace') return { findOneBy: mockWorkspaceFindOneBy }
+            if (name === 'Organization' || name === 'JubirOrganization') return { findOneBy: mockOrgFindOneBy }
             return { findOneBy: mockFindOneBy }
         })
     }

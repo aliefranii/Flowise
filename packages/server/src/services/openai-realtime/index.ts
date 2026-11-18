@@ -18,9 +18,9 @@ import { ICommonObject, INodeData } from 'flowise-components'
 import { convertToOpenAIFunction } from '@langchain/core/utils/function_calling'
 import { v4 as uuidv4 } from 'uuid'
 import { Variable } from '../../database/entities/Variable'
-import { getWorkspaceSearchOptions } from '../../enterprise/utils/ControllerServiceUtils'
-import { Workspace } from '../../enterprise/database/entities/workspace.entity'
-import { Organization } from '../../enterprise/database/entities/organization.entity'
+import { getWorkspaceSearchOptions } from '../../jubir-rbac/utils/controllerUtils'
+import { JubirWorkspace as Workspace } from '../../jubir-rbac/entities'
+import { JubirOrganization as Organization } from '../../jubir-rbac/entities'
 
 const SOURCE_DOCUMENTS_PREFIX = '\n\n----FLOWISE_SOURCE_DOCUMENTS----\n\n'
 const ARTIFACTS_PREFIX = '\n\n----FLOWISE_ARTIFACTS----\n\n'
@@ -106,7 +106,7 @@ const buildAndInitTool = async (chatflowid: string, reqWorkspaceId?: string, _ch
         variableOverrides,
         orgId,
         workspaceId,
-        subscriptionId,
+        subscriptionId: subscriptionId ?? undefined,
         updateStorageUsage,
         checkStorage
     })

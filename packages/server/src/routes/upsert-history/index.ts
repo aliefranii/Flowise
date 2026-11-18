@@ -1,15 +1,23 @@
 import express from 'express'
-import { checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 import upsertHistoryController from '../../controllers/upsert-history'
 const router = express.Router()
 
 // CREATE
 
 // READ
-router.get(['/', '/:id'], checkAnyPermission('chatflows:view,documentStores:view'), upsertHistoryController.getAllUpsertHistory)
+router.get(
+    ['/', '/:id'],
+    requireAnyJubirPermission(['agentflow', 'read'], ['document_store', 'read']),
+    upsertHistoryController.getAllUpsertHistory
+)
 
 // PATCH
-router.patch('/', checkAnyPermission('chatflows:update,documentStores:upsert-config'), upsertHistoryController.patchDeleteUpsertHistory)
+router.patch(
+    '/',
+    requireAnyJubirPermission(['agentflow', 'update'], ['document_store', 'update']),
+    upsertHistoryController.patchDeleteUpsertHistory
+)
 
 // DELETE
 

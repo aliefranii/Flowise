@@ -30,7 +30,7 @@ const generateTextToSpeech = async (req: Request, res: Response) => {
         let provider: string, credentialId: string, voice: string, model: string
 
         if (chatflowId) {
-            let workspaceId = req.user?.activeWorkspaceId
+            let workspaceId = req.jubirUser?.workspaceId
             let chatflow: Awaited<ReturnType<typeof chatflowsService.getChatflowById>>
 
             if (workspaceId) {
@@ -224,7 +224,7 @@ const getVoices = async (req: Request, res: Response, next: NextFunction) => {
             throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, `Error: textToSpeechController.getVoices - provider not provided!`)
         }
 
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

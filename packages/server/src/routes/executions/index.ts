@@ -1,17 +1,17 @@
 import express from 'express'
 import executionController from '../../controllers/executions'
-import { checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission } from '../../jubir-rbac/middlewares/permission'
 const router = express.Router()
 
 // READ
-router.get('/', checkAnyPermission('executions:view'), executionController.getAllExecutions)
-router.get(['/', '/:id'], checkAnyPermission('executions:view'), executionController.getExecutionById)
+router.get('/', requireJubirPermission('chat_session', 'read'), executionController.getAllExecutions)
+router.get(['/', '/:id'], requireJubirPermission('chat_session', 'read'), executionController.getExecutionById)
 
 // PUT
-router.put(['/', '/:id'], checkAnyPermission('executions:update'), executionController.updateExecution)
+router.put(['/', '/:id'], requireJubirPermission('agentflow', 'update'), executionController.updateExecution)
 
 // DELETE - single execution or multiple executions
-router.delete('/:id', checkAnyPermission('executions:delete'), executionController.deleteExecutions)
-router.delete('/', checkAnyPermission('executions:delete'), executionController.deleteExecutions)
+router.delete('/:id', requireJubirPermission('chat_session', 'delete'), executionController.deleteExecutions)
+router.delete('/', requireJubirPermission('chat_session', 'delete'), executionController.deleteExecutions)
 
 export default router

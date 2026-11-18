@@ -27,6 +27,8 @@ import marketplacesService from '../marketplaces'
 import toolsService from '../tools'
 import variableService from '../variables'
 import { ChatMessageRatingType, ChatType, Platform } from '../../Interface'
+import { JubirResourceType } from '../../jubir-rbac/entities'
+import { ensureResourceMappingsBatch } from '../../jubir-rbac/utils/resourceMapping'
 import { sanitizeNullBytes } from '../../utils/sanitize.util'
 
 type ExportInput = {
@@ -786,6 +788,21 @@ const importData = async (importData: ExportData, orgId: string, activeWorkspace
             if (importData.Tool.length > 0) await queryRunner.manager.save(Tool, importData.Tool)
             if (importData.Execution.length > 0) await queryRunner.manager.save(Execution, importData.Execution)
             if (importData.Variable.length > 0) await queryRunner.manager.save(Variable, importData.Variable)
+
+            const importedMappings = [
+                ...importData.AgentFlow.map((cf) => ({ resourceId: cf.id, resourceType: JubirResourceType.CHATFLOW })),
+                ...importData.AgentFlowV2.map((cf) => ({ resourceId: cf.id, resourceType: JubirResourceType.CHATFLOW })),
+                ...importData.AssistantFlow.map((cf) => ({ resourceId: cf.id, resourceType: JubirResourceType.CHATFLOW })),
+                ...importData.ChatFlow.map((cf) => ({ resourceId: cf.id, resourceType: JubirResourceType.CHATFLOW })),
+                ...importData.DocumentStore.map((ds) => ({ resourceId: ds.id, resourceType: JubirResourceType.DOCUMENT_STORE }))
+            ]
+            if (importedMappings.length > 0) {
+                await ensureResourceMappingsBatch(
+                    importedMappings,
+                    { workspaceId: activeWorkspaceId, organizationId: orgId },
+                    queryRunner.manager
+                )
+            }
 
             await queryRunner.commitTransaction()
         } catch (error) {

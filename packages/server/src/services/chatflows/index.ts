@@ -11,8 +11,8 @@ import { ChatMessage } from '../../database/entities/ChatMessage'
 import { ChatMessageFeedback } from '../../database/entities/ChatMessageFeedback'
 import { ScheduleTriggerType } from '../../database/entities/ScheduleRecord'
 import { UpsertHistory } from '../../database/entities/UpsertHistory'
-import { Workspace } from '../../enterprise/database/entities/workspace.entity'
-import { getWorkspaceSearchOptions } from '../../enterprise/utils/ControllerServiceUtils'
+import { JubirWorkspace as Workspace } from '../../jubir-rbac/entities'
+import { getWorkspaceSearchOptions } from '../../jubir-rbac/utils/controllerUtils'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
 import { ScheduleBeat } from '../../schedule/ScheduleBeat'
@@ -170,8 +170,12 @@ const deleteChatflow = async (
     }
 }
 
-const getAllChatflows = async (type?: ChatflowType, workspaceId?: string, page: number = -1, limit: number = -1) => {
+const getAllChatflows = async (type?: ChatflowType, workspaceId?: string, page: number = -1, limit: number = -1, allowedIds?: string[]) => {
     try {
+        if (allowedIds !== undefined && allowedIds.length === 0) {
+            return page > 0 && limit > 0 ? { data: [], total: 0 } : []
+        }
+
         const appServer = getRunningExpressApp()
 
         const queryBuilder = appServer.AppDataSource.getRepository(ChatFlow)
@@ -193,6 +197,7 @@ const getAllChatflows = async (type?: ChatflowType, workspaceId?: string, page: 
             queryBuilder.andWhere('chat_flow.type = :type', { type: 'CHATFLOW' })
         }
         if (workspaceId) queryBuilder.andWhere('chat_flow.workspaceId = :workspaceId', { workspaceId })
+        if (allowedIds !== undefined) queryBuilder.andWhere('chat_flow.id IN (:...allowedIds)', { allowedIds })
         const [data, total] = await queryBuilder.getManyAndCount()
 
         if (page > 0 && limit > 0) {

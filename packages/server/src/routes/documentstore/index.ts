@@ -1,5 +1,5 @@
 import express from 'express'
-import { checkPermission, checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission, requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 import documentStoreController from '../../controllers/documentstore'
 import { getMulterStorage } from '../../utils'
 
@@ -11,74 +11,90 @@ router.post(['/refresh/', '/refresh/:id'], documentStoreController.refreshDocSto
 
 /** Document Store Routes */
 // Create document store
-router.post('/store', checkPermission('documentStores:create'), documentStoreController.createDocumentStore)
+router.post('/store', requireJubirPermission('document_store', 'create'), documentStoreController.createDocumentStore)
 // List all stores
-router.get('/store', checkPermission('documentStores:view'), documentStoreController.getAllDocumentStores)
+router.get('/store', requireJubirPermission('document_store', 'read'), documentStoreController.getAllDocumentStores)
 // Get specific store
 router.get(
     '/store/:id',
-    checkAnyPermission('documentStores:view,documentStores:update,documentStores:delete'),
+    requireAnyJubirPermission(['document_store', 'read'], ['document_store', 'update'], ['document_store', 'delete']),
     documentStoreController.getDocumentStoreById
 )
 // Update documentStore
-router.put('/store/:id', checkAnyPermission('documentStores:create,documentStores:update'), documentStoreController.updateDocumentStore)
+router.put(
+    '/store/:id',
+    requireAnyJubirPermission(['document_store', 'create'], ['document_store', 'update']),
+    documentStoreController.updateDocumentStore
+)
 // Delete documentStore
-router.delete('/store/:id', checkPermission('documentStores:delete'), documentStoreController.deleteDocumentStore)
+router.delete('/store/:id', requireJubirPermission('document_store', 'delete'), documentStoreController.deleteDocumentStore)
 // Get document store configs
-router.get('/store-configs/:id/:loaderId', checkAnyPermission('documentStores:view'), documentStoreController.getDocStoreConfigs)
+router.get('/store-configs/:id/:loaderId', requireJubirPermission('document_store', 'read'), documentStoreController.getDocStoreConfigs)
 
 /** Component Nodes = Document Store - Loaders */
 // Get all loaders
-router.get('/components/loaders', checkPermission('documentStores:add-loader'), documentStoreController.getDocumentLoaders)
+router.get('/components/loaders', requireJubirPermission('document_store', 'update'), documentStoreController.getDocumentLoaders)
 
 // delete loader from document store
 router.delete(
     '/loader/:id/:loaderId',
-    checkPermission('documentStores:delete-loader'),
+    requireJubirPermission('document_store', 'update'),
     documentStoreController.deleteLoaderFromDocumentStore
 )
 // chunking preview
-router.post('/loader/preview', checkPermission('documentStores:preview-process'), documentStoreController.previewFileChunks)
+router.post('/loader/preview', requireJubirPermission('document_store', 'execute'), documentStoreController.previewFileChunks)
 // saving process
-router.post('/loader/save', checkPermission('documentStores:preview-process'), documentStoreController.saveProcessingLoader)
+router.post('/loader/save', requireJubirPermission('document_store', 'execute'), documentStoreController.saveProcessingLoader)
 // chunking process
-router.post('/loader/process/:loaderId', checkPermission('documentStores:preview-process'), documentStoreController.processLoader)
+router.post('/loader/process/:loaderId', requireJubirPermission('document_store', 'execute'), documentStoreController.processLoader)
 
 /** Document Store - Loaders - Chunks */
 // delete specific file chunk from the store
 router.delete(
     '/chunks/:storeId/:loaderId/:chunkId',
-    checkAnyPermission('documentStores:update,documentStores:delete'),
+    requireAnyJubirPermission(['document_store', 'update'], ['document_store', 'delete']),
     documentStoreController.deleteDocumentStoreFileChunk
 )
 // edit specific file chunk from the store
 router.put(
     '/chunks/:storeId/:loaderId/:chunkId',
-    checkPermission('documentStores:update'),
+    requireJubirPermission('document_store', 'update'),
     documentStoreController.editDocumentStoreFileChunk
 )
 // Get all file chunks from the store
-router.get('/chunks/:storeId/:fileId/:pageNo', checkPermission('documentStores:view'), documentStoreController.getDocumentStoreFileChunks)
+router.get(
+    '/chunks/:storeId/:fileId/:pageNo',
+    requireJubirPermission('document_store', 'read'),
+    documentStoreController.getDocumentStoreFileChunks
+)
 
 // add chunks to the selected vector store
-router.post('/vectorstore/insert', checkPermission('documentStores:upsert-config'), documentStoreController.insertIntoVectorStore)
+router.post('/vectorstore/insert', requireJubirPermission('document_store', 'update'), documentStoreController.insertIntoVectorStore)
 // save the selected vector store
-router.post('/vectorstore/save', checkPermission('documentStores:upsert-config'), documentStoreController.saveVectorStoreConfig)
+router.post('/vectorstore/save', requireJubirPermission('document_store', 'update'), documentStoreController.saveVectorStoreConfig)
 // delete data from the selected vector store
-router.delete('/vectorstore/:storeId', checkPermission('documentStores:upsert-config'), documentStoreController.deleteVectorStoreFromStore)
+router.delete(
+    '/vectorstore/:storeId',
+    requireJubirPermission('document_store', 'update'),
+    documentStoreController.deleteVectorStoreFromStore
+)
 // query the vector store
-router.post('/vectorstore/query', checkPermission('documentStores:view'), documentStoreController.queryVectorStore)
+router.post('/vectorstore/query', requireJubirPermission('document_store', 'read'), documentStoreController.queryVectorStore)
 // Get all embedding providers
-router.get('/components/embeddings', checkPermission('documentStores:upsert-config'), documentStoreController.getEmbeddingProviders)
+router.get('/components/embeddings', requireJubirPermission('document_store', 'update'), documentStoreController.getEmbeddingProviders)
 // Get all vector store providers
-router.get('/components/vectorstore', checkPermission('documentStores:upsert-config'), documentStoreController.getVectorStoreProviders)
+router.get('/components/vectorstore', requireJubirPermission('document_store', 'update'), documentStoreController.getVectorStoreProviders)
 // Get all Record Manager providers
-router.get('/components/recordmanager', checkPermission('documentStores:upsert-config'), documentStoreController.getRecordManagerProviders)
+router.get(
+    '/components/recordmanager',
+    requireJubirPermission('document_store', 'update'),
+    documentStoreController.getRecordManagerProviders
+)
 
 // update the selected vector store from the playground
-router.post('/vectorstore/update', checkPermission('documentStores:upsert-config'), documentStoreController.updateVectorStoreConfigOnly)
+router.post('/vectorstore/update', requireJubirPermission('document_store', 'update'), documentStoreController.updateVectorStoreConfigOnly)
 
 // generate docstore tool description
-router.post('/generate-tool-desc/:id', checkPermission('documentStores:view'), documentStoreController.generateDocStoreToolDesc)
+router.post('/generate-tool-desc/:id', requireJubirPermission('document_store', 'read'), documentStoreController.generateDocStoreToolDesc)
 
 export default router

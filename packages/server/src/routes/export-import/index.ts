@@ -1,12 +1,12 @@
 import express from 'express'
 import exportImportController from '../../controllers/export-import'
-import { checkPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission } from '../../jubir-rbac/middlewares/permission'
 const router = express.Router()
 
-router.post('/export', checkPermission('workspace:export'), exportImportController.exportData)
+router.post('/export', requireJubirPermission('workspace', 'update'), exportImportController.exportData)
 
-router.post('/chatflow-messages', checkPermission('workspace:export'), exportImportController.exportChatflowMessages)
+router.post('/chatflow-messages', requireJubirPermission('workspace', 'update'), exportImportController.exportChatflowMessages)
 
-router.post('/import', checkPermission('workspace:import'), exportImportController.importData)
+router.post('/import', requireJubirPermission('workspace', 'create'), exportImportController.importData)
 
 export default router

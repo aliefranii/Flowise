@@ -59,6 +59,9 @@ import { AddSSOColumns1730519457880 } from '../../../enterprise/database/migrati
 import { AddPersonalWorkspace1734074497540 } from '../../../enterprise/database/migrations/postgres/1734074497540-AddPersonalWorkspace'
 import { RefactorEnterpriseDatabase1737076223692 } from '../../../enterprise/database/migrations/postgres/1737076223692-RefactorEnterpriseDatabase'
 import { ExecutionLinkWorkspaceId1746862866554 } from '../../../enterprise/database/migrations/postgres/1746862866554-ExecutionLinkWorkspaceId'
+import { AddJubirRbacTables1794900000000 } from './1794900000000-AddJubirRbacTables'
+import { AddJubirWorkspaceSessionAuth1794900000001 } from './1794900000001-AddJubirWorkspaceSessionAuth'
+import { BackfillJubirResourceMapping1794900000002 } from './1794900000002-BackfillJubirResourceMapping'
 
 export const postgresMigrations = [
     Init1693891895163,
@@ -120,5 +123,8 @@ export const postgresMigrations = [
     AddCustomMcpServer1766000000000,
     AddMcpServerConfigToChatFlow1767000000000,
     AddScheduleEntities1772000000000,
-    AddSSOIdentityBinding1780000000000
+    AddSSOIdentityBinding1780000000000,
+    AddJubirRbacTables1794900000000,
+    AddJubirWorkspaceSessionAuth1794900000001,
+    BackfillJubirResourceMapping1794900000002
 ]

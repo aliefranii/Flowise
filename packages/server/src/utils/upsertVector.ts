@@ -16,9 +16,9 @@ import { FLOWISE_COUNTER_STATUS, FLOWISE_METRIC_COUNTERS } from '../Interface.Me
 import { ChatFlow } from '../database/entities/ChatFlow'
 import { UpsertHistory } from '../database/entities/UpsertHistory'
 import { Variable } from '../database/entities/Variable'
-import { Organization } from '../enterprise/database/entities/organization.entity'
-import { Workspace } from '../enterprise/database/entities/workspace.entity'
-import { getWorkspaceSearchOptions } from '../enterprise/utils/ControllerServiceUtils'
+import { JubirOrganization as Organization } from '../jubir-rbac/entities'
+import { JubirWorkspace as Workspace } from '../jubir-rbac/entities'
+import { getWorkspaceSearchOptions } from '../jubir-rbac/utils/controllerUtils'
 import { InternalFlowiseError } from '../errors/internalFlowiseError'
 import { getErrorMessage } from '../errors/utils'
 import {
@@ -271,7 +271,7 @@ export const upsertVector = async (req: Request, isInternal: boolean = false) =>
         }
         const workspaceId = workspace.id
 
-        if (workspaceId !== req.user?.activeWorkspaceId) throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, 'Unauthorized')
+        if (workspaceId !== req.jubirUser?.workspaceId) throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, 'Unauthorized')
 
         const org = await appServer.AppDataSource.getRepository(Organization).findOneBy({
             id: workspace.organizationId

@@ -1,17 +1,17 @@
 import express from 'express'
 import evaluatorsController from '../../controllers/evaluators'
-import { checkPermission, checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission, requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 const router = express.Router()
 
 // get all datasets
-router.get('/', checkPermission('evaluators:view'), evaluatorsController.getAllEvaluators)
+router.get('/', requireJubirPermission('agentflow', 'read'), evaluatorsController.getAllEvaluators)
 // get new dataset
-router.get(['/', '/:id'], checkPermission('evaluators:view'), evaluatorsController.getEvaluator)
+router.get(['/', '/:id'], requireJubirPermission('agentflow', 'read'), evaluatorsController.getEvaluator)
 // Create new dataset
-router.post(['/', '/:id'], checkPermission('evaluators:create'), evaluatorsController.createEvaluator)
+router.post(['/', '/:id'], requireJubirPermission('agentflow', 'create'), evaluatorsController.createEvaluator)
 // Update dataset
-router.put(['/', '/:id'], checkAnyPermission('evaluators:create,evaluators:update'), evaluatorsController.updateEvaluator)
+router.put(['/', '/:id'], requireAnyJubirPermission(['agentflow', 'create'], ['agentflow', 'update']), evaluatorsController.updateEvaluator)
 // Delete dataset via id
-router.delete(['/', '/:id'], checkPermission('evaluators:delete'), evaluatorsController.deleteEvaluator)
+router.delete(['/', '/:id'], requireJubirPermission('agentflow', 'delete'), evaluatorsController.deleteEvaluator)
 
 export default router

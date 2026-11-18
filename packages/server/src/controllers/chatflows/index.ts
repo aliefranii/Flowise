@@ -1,10 +1,12 @@
 import { NextFunction, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
-import { QueryRunner } from 'typeorm'
 import { ChatFlow, EnumChatflowType } from '../../database/entities/ChatFlow'
-import { WorkspaceUserErrorMessage, WorkspaceUserService } from '../../enterprise/services/workspace-user.service'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { ChatflowType } from '../../Interface'
+import { JubirResourceType } from '../../jubir-rbac/entities'
+import { allowedResourceIds, assertJubirResourceAccess } from '../../jubir-rbac/middlewares/jubirScope'
+import { getJubirPermissions, isJubirOrganizationAdmin } from '../../jubir-rbac/utils/controllerUtils'
+import { deleteResourceMapping, ensureResourceMapping } from '../../jubir-rbac/utils/resourceMapping'
 import { ScheduleBeat } from '../../schedule/ScheduleBeat'
 import apiKeyService from '../../services/apikey'
 import chatflowsService from '../../services/chatflows'
@@ -52,14 +54,14 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsController.deleteChatflow - id not provided!`)
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: chatflowsController.deleteChatflow - organization ${orgId} not found!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -67,8 +69,8 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
             )
         }
         const userPermittedTypes: EnumChatflowType[] = []
-        const permissions = req.user!.permissions
-        if (req.user?.isOrganizationAdmin) {
+        const permissions = getJubirPermissions(req.jubirUser?.role)
+        if (isJubirOrganizationAdmin(req.jubirUser?.role)) {
             userPermittedTypes.push(EnumChatflowType.CHATFLOW)
             userPermittedTypes.push(EnumChatflowType.AGENTFLOW)
             userPermittedTypes.push(EnumChatflowType.MULTIAGENT)
@@ -81,7 +83,9 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
             if (userPermittedTypes.length === 0)
                 throw new InternalFlowiseError(StatusCodes.FORBIDDEN, `You do not have permission to delete any chatflow types`)
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const apiResponse = await chatflowsService.deleteChatflow(req.params.id, orgId, workspaceId, userPermittedTypes)
+        await deleteResourceMapping(JubirResourceType.CHATFLOW, req.params.id)
         return res.json(apiResponse)
     } catch (error) {
         next(error)
@@ -90,13 +94,18 @@ const deleteChatflow = async (req: Request, res: Response, next: NextFunction) =
 
 const getAllChatflows = async (req: Request, res: Response, next: NextFunction) => {
     try {
+        if (!req.jubirUser) {
+            throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, GeneralErrorMessage.UNAUTHORIZED)
+        }
         const { page, limit } = getPageAndLimitParams(req)
+        const allowedIds = await allowedResourceIds(JubirResourceType.CHATFLOW, req.jubirUser)
 
         const apiResponse = await chatflowsService.getAllChatflows(
             req.query?.type as ChatflowType,
-            req.user?.activeWorkspaceId,
+            req.jubirUser.workspaceId ?? undefined,
             page,
-            limit
+            limit,
+            allowedIds
         )
         return res.json(apiResponse)
     } catch (error) {
@@ -129,13 +138,14 @@ const getChatflowById = async (req: Request, res: Response, next: NextFunction) 
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsController.getChatflowById - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: chatflowsController.getChatflowById - workspace ${workspaceId} not found!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const apiResponse = await chatflowsService.getChatflowById(req.params.id, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
@@ -148,21 +158,21 @@ const saveChatflow = async (req: Request, res: Response, next: NextFunction) => 
         if (!req.body) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsController.saveChatflow - body not provided!`)
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: chatflowsController.saveChatflow - organization ${orgId} not found!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: chatflowsController.saveChatflow - workspace ${workspaceId} not found!`
             )
         }
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
         const body = req.body
 
         const existingChatflowCount = await chatflowsService.getAllChatflowsCountByOrganization(body.type, orgId)
@@ -180,6 +190,14 @@ const saveChatflow = async (req: Request, res: Response, next: NextFunction) => 
             subscriptionId,
             getRunningExpressApp().usageCacheManager
         )
+        await ensureResourceMapping({
+            resourceId: apiResponse.id,
+            resourceType: JubirResourceType.CHATFLOW,
+            regionId: req.jubirUser?.regionId ?? null,
+            organizationId: orgId,
+            workspaceId,
+            storeId: req.jubirContext?.workspace?.storeId ?? null
+        })
 
         return res.json(apiResponse)
     } catch (error) {
@@ -192,25 +210,26 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(StatusCodes.PRECONDITION_FAILED, `Error: chatflowsController.updateChatflow - id not provided!`)
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: chatflowsController.saveChatflow - workspace ${workspaceId} not found!`
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const chatflow = await chatflowsService.getChatflowById(req.params.id, workspaceId)
         if (!chatflow) {
             return res.status(404).send('Chatflow not found')
         }
-        const orgId = req.user?.activeOrganizationId
+        const orgId = req.jubirUser?.organizationId
         if (!orgId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 `Error: chatflowsController.saveChatflow - organization ${orgId} not found!`
             )
         }
-        const subscriptionId = req.user?.activeOrganizationSubscriptionId || ''
+        const subscriptionId = req.jubirContext?.organization?.subscriptionId || ''
         const body = req.body
         const updateChatFlow = new ChatFlow()
         Object.assign(updateChatFlow, stripProtectedFields(body))
@@ -227,7 +246,6 @@ const updateChatflow = async (req: Request, res: Response, next: NextFunction) =
 }
 
 const getSinglePublicChatflow = async (req: Request, res: Response, next: NextFunction) => {
-    let queryRunner: QueryRunner | undefined
     try {
         if (typeof req.params === 'undefined' || !req.params.id) {
             throw new InternalFlowiseError(
@@ -239,20 +257,13 @@ const getSinglePublicChatflow = async (req: Request, res: Response, next: NextFu
         if (!chatflow) return res.status(StatusCodes.NOT_FOUND).json({ message: 'Chatflow not found' })
         if (chatflow.isPublic)
             return res.status(StatusCodes.OK).json({ ...chatflow, flowData: sanitizeFlowDataForPublicEndpoint(chatflow.flowData) })
-        if (!req.user) return res.status(StatusCodes.UNAUTHORIZED).json({ message: GeneralErrorMessage.UNAUTHORIZED })
-        queryRunner = getRunningExpressApp().AppDataSource.createQueryRunner()
-        const workspaceUserService = new WorkspaceUserService()
-        const workspaceUser = await workspaceUserService.readWorkspaceUserByUserId(req.user.id, queryRunner)
-        if (workspaceUser.length === 0)
-            return res.status(StatusCodes.NOT_FOUND).json({ message: WorkspaceUserErrorMessage.WORKSPACE_USER_NOT_FOUND })
-        const workspaceIds = workspaceUser.map((user) => user.workspaceId)
-        if (!workspaceIds.includes(chatflow.workspaceId))
+        if (!req.jubirUser) return res.status(StatusCodes.UNAUTHORIZED).json({ message: GeneralErrorMessage.UNAUTHORIZED })
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
+        if (chatflow.workspaceId !== req.jubirUser.workspaceId && !isJubirOrganizationAdmin(req.jubirUser.role))
             return res.status(StatusCodes.BAD_REQUEST).json({ message: 'You are not in the workspace that owns this chatflow' })
         return res.status(StatusCodes.OK).json(chatflow)
     } catch (error) {
         next(error)
-    } finally {
-        if (queryRunner) await queryRunner.release()
     }
 }
 
@@ -285,13 +296,14 @@ const checkIfChatflowHasChanged = async (req: Request, res: Response, next: Next
                 `Error: chatflowsController.checkIfChatflowHasChanged - lastUpdatedDateTime not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 'Error: chatflowsController.checkIfChatflowHasChanged - active workspace ID not found!'
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const apiResponse = await chatflowsService.checkIfChatflowHasChanged(req.params.id, req.params.lastUpdatedDateTime, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
@@ -307,10 +319,11 @@ const setWebhookSecret = async (req: Request, res: Response, next: NextFunction)
                 `Error: chatflowsController.setWebhookSecret - id not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, `Error: chatflowsController.setWebhookSecret - workspace not found!`)
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const apiResponse = await chatflowsService.setWebhookSecret(req.params.id, workspaceId)
         return res.json(apiResponse)
     } catch (error) {
@@ -326,10 +339,11 @@ const clearWebhookSecret = async (req: Request, res: Response, next: NextFunctio
                 `Error: chatflowsController.clearWebhookSecret - id not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(StatusCodes.UNAUTHORIZED, `Error: chatflowsController.clearWebhookSecret - workspace not found!`)
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         await chatflowsService.clearWebhookSecret(req.params.id, workspaceId)
         return res.sendStatus(StatusCodes.NO_CONTENT)
     } catch (error) {
@@ -345,10 +359,11 @@ const getScheduleStatus = async (req: Request, res: Response, next: NextFunction
                 'Error: chatflowsController.getScheduleStatus - id not provided!'
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, 'Error: chatflowsController.getScheduleStatus - workspace not found!')
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const status = await scheduleService.getScheduleStatus(req.params.id, workspaceId)
         return res.json({
             enabled: status.record?.enabled ?? false,
@@ -369,13 +384,14 @@ const getScheduleTriggerLogs = async (req: Request, res: Response, next: NextFun
                 'Error: chatflowsController.getScheduleTriggerLogs - id not provided!'
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 'Error: chatflowsController.getScheduleTriggerLogs - workspace not found!'
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const page = req.query.page ? parseInt(String(req.query.page), 10) : undefined
         const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined
         const statusRaw = req.query.status
@@ -395,13 +411,14 @@ const deleteScheduleTriggerLogs = async (req: Request, res: Response, next: Next
                 'Error: chatflowsController.deleteScheduleTriggerLogs - id not provided!'
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
                 'Error: chatflowsController.deleteScheduleTriggerLogs - workspace not found!'
             )
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const logIds: unknown = req.body?.logIds
         if (!Array.isArray(logIds) || logIds.some((x) => typeof x !== 'string')) {
             throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'logIds must be a string[]')
@@ -421,10 +438,11 @@ const toggleScheduleEnabled = async (req: Request, res: Response, next: NextFunc
                 'Error: chatflowsController.toggleScheduleEnabled - id not provided!'
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(StatusCodes.NOT_FOUND, 'Error: chatflowsController.toggleScheduleEnabled - workspace not found!')
         }
+        await assertJubirResourceAccess(JubirResourceType.CHATFLOW, req.params.id, req.jubirUser)
         const { enabled } = req.body
         if (typeof enabled !== 'boolean') {
             throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, '"enabled" must be a boolean')

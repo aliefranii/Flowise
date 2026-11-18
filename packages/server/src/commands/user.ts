@@ -1,9 +1,9 @@
 import { Args } from '@oclif/core'
 import { QueryRunner } from 'typeorm'
 import * as DataSource from '../DataSource'
-import { User } from '../enterprise/database/entities/user.entity'
-import { getHash } from '../enterprise/utils/encryption.util'
-import { validatePasswordOrThrow } from '../enterprise/utils/validation.util'
+import { hashPassword } from '../jubir-rbac/auth/password'
+import { validatePassword } from '../jubir-rbac/auth/validation'
+import { JubirUser } from '../jubir-rbac/entities'
 import logger from '../utils/logger'
 import { BaseCommand } from './base'
 
@@ -46,27 +46,28 @@ export default class user extends BaseCommand {
 
     async listUserEmails(queryRunner: QueryRunner) {
         logger.info('Listing all user emails')
-        const users = await queryRunner.manager.find(User, {
+        const users = await queryRunner.manager.find(JubirUser, {
             select: ['email']
         })
 
-        const emails = users.map((user) => user.email)
+        const emails = users.map((u) => u.email)
         logger.info(`Email addresses: ${emails.join(', ')}`)
         logger.info(`Email count: ${emails.length}`)
         logger.info('To reset user password, run the following command: pnpm user --email "myEmail" --password "myPassword"')
     }
 
     async resetPassword(queryRunner: QueryRunner, email: string, password: string) {
-        logger.info(`Finding user by email: ${email}`)
-        const user = await queryRunner.manager.findOne(User, {
-            where: { email }
+        const normalizedEmail = email.toLowerCase().trim()
+        logger.info(`Finding user by email: ${normalizedEmail}`)
+        const foundUser = await queryRunner.manager.findOne(JubirUser, {
+            where: { email: normalizedEmail }
         })
-        if (!user) throw new Error(`User not found with email: ${email}`)
+        if (!foundUser) throw new Error(`User not found with email: ${normalizedEmail}`)
 
-        validatePasswordOrThrow(password)
+        validatePassword(password)
 
-        user.credential = getHash(password)
-        await queryRunner.manager.save(user)
-        logger.info(`Password reset for user: ${email}`)
+        foundUser.passwordHash = hashPassword(password)
+        await queryRunner.manager.save(foundUser)
+        logger.info(`Password reset for user: ${normalizedEmail}`)
     }
 }

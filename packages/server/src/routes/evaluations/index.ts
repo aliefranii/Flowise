@@ -1,14 +1,14 @@
 import express from 'express'
 import evaluationsController from '../../controllers/evaluations'
-import { checkPermission, checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireJubirPermission, requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 const router = express.Router()
 
-router.get('/', checkPermission('evaluations:view'), evaluationsController.getAllEvaluations)
-router.get('/:id', checkPermission('evaluations:view'), evaluationsController.getEvaluation)
-router.delete('/:id', checkPermission('evaluations:delete'), evaluationsController.deleteEvaluation)
-router.post('/', checkPermission('evaluations:create'), evaluationsController.createEvaluation)
+router.get('/', requireJubirPermission('agentflow', 'read'), evaluationsController.getAllEvaluations)
+router.get('/:id', requireJubirPermission('agentflow', 'read'), evaluationsController.getEvaluation)
+router.delete('/:id', requireJubirPermission('agentflow', 'delete'), evaluationsController.deleteEvaluation)
+router.post('/', requireJubirPermission('agentflow', 'create'), evaluationsController.createEvaluation)
 router.get('/is-outdated/:id', evaluationsController.isOutdated)
-router.post('/run-again/:id', checkAnyPermission('evaluations:create,evaluations:run'), evaluationsController.runAgain)
-router.get('/versions/:id', checkPermission('evaluations:view'), evaluationsController.getVersions)
-router.patch('/', checkPermission('evaluations:delete'), evaluationsController.patchDeleteEvaluations)
+router.post('/run-again/:id', requireAnyJubirPermission(['agentflow', 'create'], ['agentflow', 'execute']), evaluationsController.runAgain)
+router.get('/versions/:id', requireJubirPermission('agentflow', 'read'), evaluationsController.getVersions)
+router.patch('/', requireJubirPermission('agentflow', 'delete'), evaluationsController.patchDeleteEvaluations)
 export default router

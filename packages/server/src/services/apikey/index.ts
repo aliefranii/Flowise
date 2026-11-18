@@ -1,23 +1,22 @@
 import { StatusCodes } from 'http-status-codes'
 import { v4 as uuidv4 } from 'uuid'
 import { ApiKey } from '../../database/entities/ApiKey'
-import { LoggedInUser } from '../../enterprise/Interface.Enterprise'
 import { InternalFlowiseError } from '../../errors/internalFlowiseError'
 import { getErrorMessage } from '../../errors/utils'
-import { Platform } from '../../Interface'
+import { JubirRequestUser } from '../../jubir-rbac/middlewares/jubirAuth'
+import { getJubirPermissions, isJubirOrganizationAdmin } from '../../jubir-rbac/utils/controllerUtils'
 import { addChatflowsCount } from '../../utils/addChatflowsCount'
 import { generateAPIKey, generateSecretHash } from '../../utils/apiKey'
 import { getRunningExpressApp } from '../../utils/getRunningExpressApp'
-import logger from '../../utils/logger'
 
 /**
  * Validates that requested permissions are allowed for API keys
- * @param user - The logged-in user
- * @param permissions - string array of requested permissions
+ * @param user - The logged-in Jubir user
+ * @param requestedPermissions - string array of requested permissions
  * @param operation - The operation being performed (for error message)
  * @throws InternalFlowiseError if validation fails
  */
-function validatePermissions(user: LoggedInUser, requestedPermissions: string[], operation: string) {
+function validatePermissions(user: JubirRequestUser, requestedPermissions: string[], operation: string) {
     // API Keys should not have workspace or admin permissions
     // This applies to ALL users, including admins (platform constraint)
     const hasRestrictedPermissions = requestedPermissions.some(
@@ -28,56 +27,10 @@ function validatePermissions(user: LoggedInUser, requestedPermissions: string[],
         throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, `Cannot ${operation} API key with workspace or admin permissions`)
     }
 
-    // For Cloud platform, check feature-gated permissions
-    // This also applies to ALL users, including admins (platform constraint)
-    const appServer = getRunningExpressApp()
-    if (appServer.identityManager.getPlatformType() === Platform.CLOUD) {
-        if (!user.features) {
-            // On Cloud platform, user features should always exist
-            // Log the anomaly with context for debugging
-            logger.error(
-                `[server]: Missing user features on Cloud platform for ${operation} API key. ` +
-                    `User: ${user.email || user.id}, ` +
-                    `Organization: ${user.activeOrganizationId || 'unknown'}, ` +
-                    `Subscription: ${user.activeOrganizationSubscriptionId || 'unknown'}, ` +
-                    `Customer: ${user.activeOrganizationCustomerId || 'unknown'}, ` +
-                    `Workspace: ${user.activeWorkspaceId || 'unknown'}`
-            )
-            throw new InternalFlowiseError(StatusCodes.INTERNAL_SERVER_ERROR, `Unable to validate permissions: user features not available`)
-        }
-
-        const featureToPermissionMap: { [key: string]: string[] } = {
-            'feat:login-activity': ['loginActivity:'],
-            'feat:logs': ['logs:'],
-            'feat:roles': ['roles:'],
-            'feat:share': ['credentials:share', 'templates:custom-share'],
-            'feat:sso-config': ['sso:'],
-            'feat:users': ['users:'],
-            'feat:workspaces': ['workspace:']
-        }
-
-        const disabledFeatures = Object.entries(user.features).filter(([, value]) => value === 'false')
-        const disabledPermissionPrefixes: string[] = []
-        disabledFeatures.forEach(([featureKey]) => {
-            const prefixes = featureToPermissionMap[featureKey]
-            if (prefixes) {
-                disabledPermissionPrefixes.push(...prefixes)
-            }
-        })
-
-        const hasDisabledFeaturePermissions = requestedPermissions.some((permission: string) =>
-            disabledPermissionPrefixes.some((prefix) => permission.startsWith(prefix))
-        )
-
-        if (hasDisabledFeaturePermissions) {
-            throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, `Cannot ${operation} API key with permissions for disabled features`)
-        }
-    }
-
     // User permission validation - only applies to non-admins (authorization check)
-    if (!user.isOrganizationAdmin) {
-        // Check if all requested permissions are included in user permissions
-        const hasInvalidPermissions = requestedPermissions.some((permission: string) => !user.permissions.includes(permission))
+    if (!isJubirOrganizationAdmin(user.role)) {
+        const userPermissions = getJubirPermissions(user.role)
+        const hasInvalidPermissions = requestedPermissions.some((permission: string) => !userPermissions.includes(permission))
         if (hasInvalidPermissions) {
             throw new InternalFlowiseError(
                 StatusCodes.BAD_REQUEST,
@@ -96,8 +49,8 @@ async function getAllApiKeysByOrganization(organizationId: string): Promise<ApiK
     const ApiKeys = await appServer.AppDataSource.getRepository(ApiKey)
         .createQueryBuilder('api_key')
         .select(['api_key.keyName', 'api_key.permissions'])
-        .leftJoin('workspace', 'workspace', 'api_key.workspaceId = workspace.id')
-        .where('workspace.organizationId = :organizationId', { organizationId })
+        .leftJoin('jubir_workspace', 'workspace', 'api_key.workspaceId = workspace.id')
+        .where('workspace.organization_id = :organizationId', { organizationId })
         .getMany()
     return ApiKeys
 }
@@ -106,8 +59,11 @@ async function getAllApiKeysByOrganization(organizationId: string): Promise<ApiK
  * Get all API keys for a workspace
  * Non-admin users can only view API keys whose permissions are a subset of their own permissions
  */
-const getAllApiKeys = async (user: LoggedInUser, page: number = -1, limit: number = -1) => {
+const getAllApiKeys = async (user: JubirRequestUser, page: number = -1, limit: number = -1) => {
     try {
+        if (!user.workspaceId) {
+            throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'Workspace ID is required')
+        }
         const appServer = getRunningExpressApp()
         const queryBuilder = appServer.AppDataSource.getRepository(ApiKey)
             .createQueryBuilder('api_key')
@@ -116,16 +72,17 @@ const getAllApiKeys = async (user: LoggedInUser, page: number = -1, limit: numbe
             queryBuilder.skip((page - 1) * limit)
             queryBuilder.take(limit)
         }
-        queryBuilder.andWhere('api_key.workspaceId = :workspaceId', { workspaceId: user.activeWorkspaceId })
+        queryBuilder.andWhere('api_key.workspaceId = :workspaceId', { workspaceId: user.workspaceId })
         const allKeys = await queryBuilder.getMany()
 
         // Filter keys based on user permissions
         let filteredKeys = allKeys
-        if (!user.isOrganizationAdmin) {
+        if (!isJubirOrganizationAdmin(user.role)) {
+            const userPermissions = getJubirPermissions(user.role)
             // Non-admin users can only see API keys whose permissions are a subset of their own
             filteredKeys = allKeys.filter((key) => {
                 // Check if all key permissions are included in user permissions
-                return key.permissions.every((permission: string) => user.permissions.includes(permission))
+                return key.permissions.every((permission: string) => userPermissions.includes(permission))
             })
         }
 
@@ -171,7 +128,10 @@ const getApiKeyById = async (apiKeyId: string) => {
     }
 }
 
-const createApiKey = async (user: LoggedInUser, keyName: string, permissions: string[]) => {
+const createApiKey = async (user: JubirRequestUser, keyName: string, permissions: string[]) => {
+    if (!user.workspaceId) {
+        throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'Workspace ID is required')
+    }
     // Validate permissions before creating the key
     validatePermissions(user, permissions, 'create')
 
@@ -184,21 +144,24 @@ const createApiKey = async (user: LoggedInUser, keyName: string, permissions: st
     newKey.apiSecret = apiSecret
     newKey.keyName = keyName
     newKey.permissions = permissions
-    newKey.workspaceId = user.activeWorkspaceId
+    newKey.workspaceId = user.workspaceId
     const key = appServer.AppDataSource.getRepository(ApiKey).create(newKey)
     await appServer.AppDataSource.getRepository(ApiKey).save(key)
     return await getAllApiKeys(user)
 }
 
 // Update api key
-const updateApiKey = async (user: LoggedInUser, id: string, keyName: string, permissions: string[]) => {
+const updateApiKey = async (user: JubirRequestUser, id: string, keyName: string, permissions: string[]) => {
+    if (!user.workspaceId) {
+        throw new InternalFlowiseError(StatusCodes.BAD_REQUEST, 'Workspace ID is required')
+    }
     // Validate permissions before updating the key
     validatePermissions(user, permissions, 'update')
 
     const appServer = getRunningExpressApp()
     const currentKey = await appServer.AppDataSource.getRepository(ApiKey).findOneBy({
         id: id,
-        workspaceId: user.activeWorkspaceId
+        workspaceId: user.workspaceId
     })
     if (!currentKey) {
         throw new InternalFlowiseError(StatusCodes.NOT_FOUND, `ApiKey ${currentKey} not found`)

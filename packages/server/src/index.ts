@@ -10,34 +10,34 @@ import { AbortControllerPool } from './AbortControllerPool'
 import { CachePool } from './CachePool'
 import { ChatFlow } from './database/entities/ChatFlow'
 import { getDataSource } from './DataSource'
-import { Organization } from './enterprise/database/entities/organization.entity'
-import { Workspace } from './enterprise/database/entities/workspace.entity'
 import { LoggedInUser } from './enterprise/Interface.Enterprise'
-import { initializeJwtCookieMiddleware, verifyToken, verifyTokenForBullMQDashboard } from './enterprise/middleware/passport'
-import { checkPermission } from './enterprise/rbac/PermissionCheck'
-import { initAuthSecrets } from './enterprise/utils/authSecrets'
-import { IdentityManager } from './IdentityManager'
+import type { IdentityManager } from './IdentityManager'
 import { MODE, Platform } from './Interface'
 import { IMetricsProvider } from './Interface.Metrics'
+import { validateJubirSecrets } from './jubir-rbac/config/env'
+import { Role } from './jubir-rbac/config/rbac.config'
+import { attachJubirUser } from './jubir-rbac/middlewares/attachJubirUser'
+import { requireJubirAuth, requireJubirRoles } from './jubir-rbac/middlewares/jubirAuth'
+import { createJubirApiGatekeeper } from './jubir-rbac/middlewares/jubirGatekeeper'
+import { seedJubirSuperAdmin } from './jubir-rbac/seeders/JubirAdminSeeder'
+import { backfillJubirResourceMappings } from './jubir-rbac/utils/resourceMapping'
 import { OpenTelemetry } from './metrics/OpenTelemetry'
 import { Prometheus } from './metrics/Prometheus'
 import errorHandlerMiddleware from './middlewares/errors'
 import { NodesPool } from './NodesPool'
 import { QueueManager } from './queue/QueueManager'
-import { ScheduleBeat } from './schedule/ScheduleBeat'
 import { RedisEventSubscriber } from './queue/RedisEventSubscriber'
-import { initWebhookListenerRegistry } from './services/webhook-listener'
 import flowiseApiV1Router from './routes'
+import { ScheduleBeat } from './schedule/ScheduleBeat'
+import { initWebhookListenerRegistry } from './services/webhook-listener'
 import { UsageCacheManager } from './UsageCacheManager'
 import { getEncryptionKey, getNodeModulesPackagePath } from './utils'
-import { API_KEY_BLACKLIST_URLS, WHITELIST_URLS } from './utils/constants'
+import { WHITELIST_URLS } from './utils/constants'
 import logger, { expressRequestLogger } from './utils/logger'
 import { RateLimiterManager } from './utils/rateLimit'
 import { SSEStreamer } from './utils/SSEStreamer'
 import { Telemetry } from './utils/telemetry'
-import { validateAPIKey } from './utils/validateKey'
 import { getCorsOptions, getIframeSecurityHeaders, sanitizeMiddleware, validateCorsConfig } from './utils/XSS'
-
 declare global {
     namespace Express {
         interface User extends LoggedInUser {}
@@ -91,9 +91,16 @@ export class App {
             await this.AppDataSource.runMigrations({ transaction: 'each' })
             logger.info('🔄 [server]: Database migrations completed successfully')
 
-            // Initialize Identity Manager
-            this.identityManager = await IdentityManager.getInstance()
-            logger.info('🔐 [server]: Identity Manager initialized successfully')
+            // Standalone compatibility shim until Langkah 2 removes legacy IdentityManager callers in core services/queues
+            this.identityManager = {
+                getPlatformType: () => Platform.OPEN_SOURCE,
+                isEnterprise: () => false,
+                isCloud: () => false,
+                isOpenSource: () => true,
+                isLicenseValid: () => false,
+                getFeaturesByPlan: async () => ({}),
+                getProductIdFromSubscription: async () => ''
+            } as unknown as IdentityManager
 
             // Initialize nodes pool
             this.nodesPool = new NodesPool()
@@ -107,10 +114,6 @@ export class App {
             // Initialize encryption key
             await getEncryptionKey()
             logger.info('🔑 [server]: Encryption key initialized successfully')
-
-            // Initialize auth secrets (env → AWS Secrets Manager → filesystem)
-            await initAuthSecrets()
-            logger.info('🔐 [server]: Auth initialized successfully')
 
             // Initialize Rate Limit
             this.rateLimiterManager = RateLimiterManager.getInstance()
@@ -223,85 +226,10 @@ export class App {
 
         const denylistURLs = process.env.DENYLIST_URLS ? process.env.DENYLIST_URLS.split(',') : []
         const whitelistURLs = WHITELIST_URLS.filter((url) => !denylistURLs.includes(url))
-        const URL_CASE_INSENSITIVE_REGEX: RegExp = /\/api\/v1\//i
-        const URL_CASE_SENSITIVE_REGEX: RegExp = /\/api\/v1\//
 
-        await initializeJwtCookieMiddleware(this.app, this.identityManager)
-
-        this.app.use(async (req, res, next) => {
-            // Step 1: Check if the req path contains /api/v1 regardless of case
-            if (URL_CASE_INSENSITIVE_REGEX.test(req.path)) {
-                // Step 2: Check if the req path is casesensitive
-                if (URL_CASE_SENSITIVE_REGEX.test(req.path)) {
-                    // Step 3: Check if the req path is in the whitelist
-                    const isWhitelisted = whitelistURLs.some((url) => req.path.startsWith(url))
-                    if (isWhitelisted) {
-                        next()
-                    } else if (req.headers['x-request-from'] === 'internal') {
-                        verifyToken(req, res, next)
-                    } else {
-                        const isAPIKeyBlacklistedURLS = API_KEY_BLACKLIST_URLS.some((url) => req.path.startsWith(url))
-                        if (isAPIKeyBlacklistedURLS) {
-                            return res.status(401).json({ error: 'Unauthorized Access' })
-                        }
-
-                        // Only check license validity for non-open-source platforms
-                        if (this.identityManager.getPlatformType() !== Platform.OPEN_SOURCE) {
-                            if (!this.identityManager.isLicenseValid()) {
-                                return res.status(401).json({ error: 'Unauthorized Access' })
-                            }
-                        }
-
-                        const { isValid, apiKey } = await validateAPIKey(req)
-                        if (!isValid || !apiKey) {
-                            return res.status(401).json({ error: 'Unauthorized Access' })
-                        }
-
-                        // Find workspace
-                        const workspace = await this.AppDataSource.getRepository(Workspace).findOne({
-                            where: { id: apiKey.workspaceId }
-                        })
-                        if (!workspace) {
-                            return res.status(401).json({ error: 'Unauthorized Access' })
-                        }
-
-                        // Find organization
-                        const activeOrganizationId = workspace.organizationId as string
-                        const org = await this.AppDataSource.getRepository(Organization).findOne({
-                            where: { id: activeOrganizationId }
-                        })
-                        if (!org) {
-                            return res.status(401).json({ error: 'Unauthorized Access' })
-                        }
-                        const subscriptionId = org.subscriptionId as string
-                        const customerId = org.customerId as string
-                        const features = await this.identityManager.getFeaturesByPlan(subscriptionId)
-                        const productId = await this.identityManager.getProductIdFromSubscription(subscriptionId)
-                        // @ts-ignore
-                        req.user = {
-                            permissions: apiKey.permissions,
-                            features,
-                            activeOrganizationId: activeOrganizationId,
-                            activeOrganizationSubscriptionId: subscriptionId,
-                            activeOrganizationCustomerId: customerId,
-                            activeOrganizationProductId: productId,
-                            isOrganizationAdmin: false,
-                            activeWorkspaceId: workspace.id,
-                            activeWorkspace: workspace.name
-                        }
-                        next()
-                    }
-                } else {
-                    return res.status(401).json({ error: 'Unauthorized Access' })
-                }
-            } else {
-                // If the req path does not contain /api/v1, then allow the request to pass through, example: /assets, /canvas
-                next()
-            }
-        })
-
-        // this is for SSO and must be after the JWT cookie middleware
-        await this.identityManager.initializeSSO(this.app)
+        // Jubir pure JWT/cookie middleware (jubirAccessToken cookie or Bearer header)
+        this.app.use(attachJubirUser)
+        this.app.use(createJubirApiGatekeeper({ whitelistURLs, dataSource: this.AppDataSource }))
 
         if (process.env.ENABLE_METRICS === 'true') {
             switch (process.env.METRICS_PROVIDER) {
@@ -337,7 +265,7 @@ export class App {
             })
         })
 
-        if (process.env.MODE === MODE.QUEUE && process.env.ENABLE_BULLMQ_DASHBOARD === 'true' && !this.identityManager.isCloud()) {
+        if (process.env.MODE === MODE.QUEUE && process.env.ENABLE_BULLMQ_DASHBOARD === 'true') {
             // Initialize admin queues rate limiter
             const id = 'bullmq_admin_dashboard'
             await this.rateLimiterManager.addRateLimiter(
@@ -351,8 +279,8 @@ export class App {
             this.app.use(
                 '/admin/queues',
                 rateLimiter,
-                verifyTokenForBullMQDashboard,
-                checkPermission('admin:queues'),
+                requireJubirAuth,
+                requireJubirRoles(Role.SUPER_ADMIN),
                 this.queueManager.getBullBoardRouter()
             )
         }
@@ -394,6 +322,7 @@ export class App {
 let serverApp: App | undefined
 
 export async function start(): Promise<void> {
+    validateJubirSecrets()
     serverApp = new App()
 
     const host = process.env.HOST
@@ -402,6 +331,10 @@ export async function start(): Promise<void> {
 
     await serverApp.initDatabase()
     await serverApp.config()
+
+    // Jalankan seeder SUPER_ADMIN Jubir setelah seluruh migrasi selesai
+    await seedJubirSuperAdmin()
+    await backfillJubirResourceMappings(serverApp.AppDataSource)
 
     server.listen(port, host, () => {
         logger.info(`⚡️ [server]: Flowise Server is listening at ${host ? 'http://' + host : ''}:${port}`)

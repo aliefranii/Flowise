@@ -11,7 +11,7 @@ const getSingleFlowConfig = async (req: Request, res: Response, next: NextFuncti
                 `Error: flowConfigsController.getSingleFlowConfig - id not provided!`
             )
         }
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

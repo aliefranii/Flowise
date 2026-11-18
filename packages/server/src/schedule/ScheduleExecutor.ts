@@ -12,8 +12,7 @@ import { IServerSideEventStreamer } from 'flowise-components'
 import { ScheduleRecord, ScheduleTriggerType } from '../database/entities/ScheduleRecord'
 import { ScheduleTriggerStatus } from '../database/entities/ScheduleTriggerLog'
 import { ChatFlow } from '../database/entities/ChatFlow'
-import { Workspace } from '../enterprise/database/entities/workspace.entity'
-import { Organization } from '../enterprise/database/entities/organization.entity'
+import { JubirOrganization, JubirWorkspace } from '../jubir-rbac/entities'
 import { executeAgentFlow } from '../utils/buildAgentflow'
 import { checkPredictions, updatePredictionsUsage } from '../utils/quotaUsage'
 import scheduleService from '../services/schedule'
@@ -22,7 +21,7 @@ import { CachePool } from '../CachePool'
 import { UsageCacheManager } from '../UsageCacheManager'
 import { v4 as uuidv4 } from 'uuid'
 import logger from '../utils/logger'
-import { IdentityManager } from '../IdentityManager'
+import type { IdentityManager } from '../IdentityManager'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -166,13 +165,13 @@ async function _executeAgentflow(ctx: ScheduleExecutionContext, record: Schedule
 
         const workspaceId = chatflow.workspaceId ?? record.workspaceId
 
-        const workspace = await appDataSource.getRepository(Workspace).findOneBy({ id: workspaceId })
+        const workspace = await appDataSource.getRepository(JubirWorkspace).findOneBy({ id: workspaceId })
         if (!workspace) throw new Error(`Workspace ${workspaceId} not found`)
-        const org = await appDataSource.getRepository(Organization).findOneBy({ id: workspace.organizationId })
+        const org = await appDataSource.getRepository(JubirOrganization).findOneBy({ id: workspace.organizationId })
         if (!org) throw new Error(`Organization ${workspace.organizationId} not found`)
 
         const orgId = org.id
-        const subscriptionId = org.subscriptionId as string
+        const subscriptionId = (org.subscriptionId as string) || ''
         const productId = await identityManager.getProductIdFromSubscription(subscriptionId)
 
         await checkPredictions(org.id, subscriptionId, usageCacheManager)

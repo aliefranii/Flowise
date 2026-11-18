@@ -7,7 +7,7 @@ import upsertHistoryService from '../../services/upsert-history'
 
 const getAllUpsertHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,
@@ -50,7 +50,7 @@ const getAllUpsertHistory = async (req: Request, res: Response, next: NextFuncti
 
 const patchDeleteUpsertHistory = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const workspaceId = req.user?.activeWorkspaceId
+        const workspaceId = req.jubirUser?.workspaceId
         if (!workspaceId) {
             throw new InternalFlowiseError(
                 StatusCodes.NOT_FOUND,

@@ -1,16 +1,12 @@
 import express from 'express'
 import nodesRouter from '../../controllers/nodes'
-import { checkAnyPermission } from '../../enterprise/rbac/PermissionCheck'
+import { requireAnyJubirPermission } from '../../jubir-rbac/middlewares/permission'
 const router = express.Router()
 
 // CREATE
 
 // READ
-router.post(
-    '/',
-    checkAnyPermission('chatflows:create,chatflows:update,agentflows:create,agentflows:update'),
-    nodesRouter.executeCustomFunction
-)
+router.post('/', requireAnyJubirPermission(['agentflow', 'create'], ['agentflow', 'update']), nodesRouter.executeCustomFunction)
 
 // UPDATE
 

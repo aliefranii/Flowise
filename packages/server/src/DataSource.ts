@@ -9,7 +9,8 @@ import { mysqlMigrations } from './database/migrations/mysql'
 import { mariadbMigrations } from './database/migrations/mariadb'
 import { postgresMigrations } from './database/migrations/postgres'
 import logger from './utils/logger'
-
+// tabel custom
+import { jubirEntities } from './jubir-rbac/entities'
 let appDataSource: DataSource
 
 export const init = async (): Promise<void> => {
@@ -26,7 +27,7 @@ export const init = async (): Promise<void> => {
                 database: path.resolve(homePath, 'database.sqlite'),
                 synchronize: false,
                 migrationsRun: false,
-                entities: Object.values(entities),
+                entities: [...Object.values(entities), ...jubirEntities],
                 migrations: sqliteMigrations
             })
             break
@@ -41,7 +42,7 @@ export const init = async (): Promise<void> => {
                 charset: 'utf8mb4',
                 synchronize: false,
                 migrationsRun: false,
-                entities: Object.values(entities),
+                entities: [...Object.values(entities), ...jubirEntities],
                 migrations: mysqlMigrations,
                 ssl: getDatabaseSSLFromEnv()
             })
@@ -57,7 +58,7 @@ export const init = async (): Promise<void> => {
                 charset: 'utf8mb4',
                 synchronize: false,
                 migrationsRun: false,
-                entities: Object.values(entities),
+                entities: [...Object.values(entities), ...jubirEntities],
                 migrations: mariadbMigrations,
                 ssl: getDatabaseSSLFromEnv()
             })
@@ -73,7 +74,7 @@ export const init = async (): Promise<void> => {
                 ssl: getDatabaseSSLFromEnv(),
                 synchronize: false,
                 migrationsRun: false,
-                entities: Object.values(entities),
+                entities: [...Object.values(entities), ...jubirEntities],
                 migrations: postgresMigrations,
                 extra: {
                     idleTimeoutMillis: 120000
@@ -94,7 +95,7 @@ export const init = async (): Promise<void> => {
                 database: path.resolve(homePath, 'database.sqlite'),
                 synchronize: false,
                 migrationsRun: false,
-                entities: Object.values(entities),
+                entities: [...Object.values(entities), ...jubirEntities],
                 migrations: sqliteMigrations
             })
             break
