@@ -210,6 +210,19 @@ const Documents = () => {
         const storeId = deleteDocStoreDialogProps?.storeId
         if (!storeId) return
 
+        const hasRecordManagerConfig =
+            deleteDocStoreDialogProps?.recordManagerConfig && Object.keys(deleteDocStoreDialogProps.recordManagerConfig).length > 0
+        const hasVectorStoreConfig =
+            deleteDocStoreDialogProps?.vectorStoreConfig && Object.keys(deleteDocStoreDialogProps.vectorStoreConfig).length > 0
+
+        if (hasRecordManagerConfig && hasVectorStoreConfig) {
+            try {
+                await documentsApi.deleteVectorStoreDataFromStore(storeId)
+            } catch (error) {
+                console.error(error)
+            }
+        }
+
         try {
             const deleteResp = await documentsApi.deleteDocumentStore(storeId)
             if (deleteResp.data) {

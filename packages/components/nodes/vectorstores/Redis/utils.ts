@@ -26,6 +26,10 @@ export const escapeAllStrings = (obj: object) => {
     })
 }
 
+export const escapeMetadataChars = (str: string) => {
+    return str.replaceAll('-', '\\-').replaceAll(':', '\\:').replaceAll('"', '\\"')
+}
+
 export const unEscapeSpecialChars = (str: string) => {
     return str.replaceAll('\\-', '-').replaceAll('\\:', ':').replaceAll('\\"', '"')
 }
